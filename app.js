@@ -64,7 +64,7 @@ catBtns.forEach(btn => {
 });
 
 // ================================================================
-// 5. DRAG-AND-DROP (для изменения категории)
+// 5. DRAG-AND-DROP (с поддержкой iOS)
 // ================================================================
 let dragData = {
     isDragging: false,
@@ -77,17 +77,16 @@ let dragData = {
     productId: null,
     currentCategory: null,
     longPressTimer: null,
-    isLongPress: false
+    isLongPress: false,
+    moved: false // чтобы отличать клик от долгого нажатия с движением
 };
 
 // Создаём клон для перетаскивания
 function createDragClone(element) {
     const clone = document.createElement('div');
     clone.className = 'drag-clone';
-    // копируем текст с иконкой
     const nameSpan = element.querySelector('.name');
     clone.textContent = nameSpan ? nameSpan.textContent : element.textContent;
-    // стили
     const rect = element.getBoundingClientRect();
     clone.style.left = rect.left + 'px';
     clone.style.top = rect.top + 'px';
@@ -99,24 +98,20 @@ function createDragClone(element) {
     return clone;
 }
 
-// Показать зоны сброса
 function showDropZones() {
     dropZones.classList.remove('hidden');
 }
 
-// Скрыть зоны сброса
 function hideDropZones() {
     dropZones.classList.add('hidden');
     dropZonesList.forEach(z => z.classList.remove('drag-over'));
 }
 
-// Обновить позицию клона
 function updateDragClone(clientX, clientY) {
     if (dragData.clone) {
         dragData.clone.style.left = (clientX - dragData.offsetX) + 'px';
         dragData.clone.style.top = (clientY - dragData.offsetY) + 'px';
     }
-    // Проверяем, над какой зоной находится курсор
     dropZonesList.forEach(zone => {
         const rect = zone.getBoundingClientRect();
         if (clientX >= rect.left && clientX <= rect.right &&
@@ -128,7 +123,6 @@ function updateDragClone(clientX, clientY) {
     });
 }
 
-// Начать перетаскивание
 function startDrag(e, productElement) {
     if (dragData.isDragging) return;
     const touch = e.touches ? e.touches[0] : e;
@@ -140,18 +134,16 @@ function startDrag(e, productElement) {
     dragData.currentCategory = productElement.dataset.category || 'other';
     dragData.offsetX = touch.clientX - rect.left;
     dragData.offsetY = touch.clientY - rect.top;
+    dragData.moved = false;
 
     // Вибрация
     if (navigator.vibrate) navigator.vibrate(30);
 
-    // Создаём клон
     dragData.clone = createDragClone(productElement);
-    // Сделаем оригинал полупрозрачным
     productElement.style.opacity = '0.4';
 
     showDropZones();
 
-    // Обработчики движения и завершения
     if (e.type === 'touchstart') {
         document.addEventListener('touchmove', onDragMove, { passive: false });
         document.addEventListener('touchend', onDragEnd, { passive: false });
@@ -161,18 +153,16 @@ function startDrag(e, productElement) {
     }
 }
 
-// Движение при перетаскивании
 function onDragMove(e) {
     e.preventDefault();
     const touch = e.touches ? e.touches[0] : e;
+    dragData.moved = true;
     updateDragClone(touch.clientX, touch.clientY);
 }
 
-// Завершение перетаскивания
 function onDragEnd(e) {
     const touch = e.changedTouches ? e.changedTouches[0] : e;
 
-    // Определяем, над какой зоной был бросок
     let targetCategory = null;
     dropZonesList.forEach(zone => {
         if (zone.classList.contains('drag-over')) {
@@ -180,14 +170,12 @@ function onDragEnd(e) {
         }
     });
 
-    // Если есть целевая категория и она отличается от текущей
     if (targetCategory && targetCategory !== dragData.currentCategory) {
-        // Обновляем в Firestore
         const productId = dragData.productId;
         db.collection('products').doc(productId).update({
             category: targetCategory
         }).catch(err => console.error('Ошибка обновления категории:', err));
-        // Визуально обновим сразу (оптимистично)
+        // Оптимистичное обновление UI
         const nameSpan = dragData.element.querySelector('.name');
         if (nameSpan) {
             const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
@@ -211,85 +199,88 @@ function onDragEnd(e) {
     dragData.productId = null;
     dragData.currentCategory = null;
 
-    // Удаляем обработчики
     document.removeEventListener('touchmove', onDragMove);
     document.removeEventListener('touchend', onDragEnd);
     document.removeEventListener('mousemove', onDragMove);
     document.removeEventListener('mouseup', onDragEnd);
 }
 
-// Обработчик долгого нажатия
+// Обработчики долгого нажатия с улучшенной логикой для iOS
 function handleLongPress(e, productElement) {
+    // Если это купленный товар – не активируем drag
+    if (productElement.classList.contains('bought')) return;
+
+    const startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const startY = e.touches ? e.touches[0].clientY : e.clientY;
+    let moved = false;
+
+    const onMove = (ev) => {
+        const touch = ev.touches ? ev.touches[0] : ev;
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        if (Math.sqrt(dx*dx + dy*dy) > 10) {
+            moved = true;
+            clearTimeout(dragData.longPressTimer);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('mousemove', onMove);
+        }
+    };
+
+    const onEnd = (ev) => {
+        clearTimeout(dragData.longPressTimer);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('touchend', onEnd);
+        document.removeEventListener('mouseup', onEnd);
+        // Если не было долгого нажатия и не было движения, то это клик
+        if (!dragData.isLongPress && !moved) {
+            // Клик обработается отдельно
+        }
+    };
+
     if (e.type === 'touchstart') {
+        document.addEventListener('touchmove', onMove, { passive: true });
+        document.addEventListener('touchend', onEnd, { passive: true });
         dragData.longPressTimer = setTimeout(() => {
-            dragData.isLongPress = true;
-            startDrag(e, productElement);
+            if (!moved) {
+                dragData.isLongPress = true;
+                startDrag(e, productElement);
+            }
         }, 500);
     } else if (e.type === 'mousedown') {
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onEnd);
         dragData.longPressTimer = setTimeout(() => {
-            dragData.isLongPress = true;
-            startDrag(e, productElement);
+            if (!moved) {
+                dragData.isLongPress = true;
+                startDrag(e, productElement);
+            }
         }, 500);
     }
 }
 
-// Отмена долгого нажатия при движении или преждевременном отпускании
-function cancelLongPress() {
-    if (dragData.longPressTimer) {
-        clearTimeout(dragData.longPressTimer);
-        dragData.longPressTimer = null;
-    }
-    dragData.isLongPress = false;
-}
-
-// Привязываем события к элементам продуктов (будет вызываться при создании)
+// Привязываем события к элементам продуктов
 function attachDragEvents(element, product) {
-    // Только для активных продуктов? Можно и для купленных, но обычно перетаскивают активные.
-    // Разрешим для всех, кроме купленных (чтобы не путать)
-    if (product.bought) {
-        // Для купленных не добавляем долгое нажатие, только клик (переключение)
-        return;
-    }
+    if (product.bought) return; // только для активных
 
     element.addEventListener('touchstart', function(e) {
-        // Если клик по кнопке удаления – не обрабатываем
         if (e.target.closest('.delete-btn')) return;
         handleLongPress(e, element);
     }, { passive: true });
-
-    element.addEventListener('touchmove', function(e) {
-        cancelLongPress();
-    }, { passive: true });
-
-    element.addEventListener('touchend', function(e) {
-        if (dragData.isLongPress) {
-            // Если было долгое нажатие, предотвращаем клик
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        cancelLongPress();
-    }, { passive: false });
 
     element.addEventListener('mousedown', function(e) {
         if (e.target.closest('.delete-btn')) return;
         handleLongPress(e, element);
     });
 
-    element.addEventListener('mousemove', function(e) {
-        cancelLongPress();
-    });
-
-    element.addEventListener('mouseup', function(e) {
-        if (dragData.isLongPress) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        cancelLongPress();
-    });
+    // Отменяем долгое нажатие, если палец/мышь ушли за пределы элемента
+    element.addEventListener('touchmove', function(e) {
+        // ничего не делаем, обработка в handleLongPress через document
+    }, { passive: true });
 }
 
 // ================================================================
-// 6. ОСНОВНАЯ ЛОГИКА (добавление, переключение, удаление, архив)
+// 6. ОСНОВНАЯ ЛОГИКА
 // ================================================================
 addButton.addEventListener('click', addProduct);
 productInput.addEventListener('keypress', (e) => {
@@ -459,12 +450,14 @@ function createProductElement(product) {
     right.appendChild(delBtn);
     div.appendChild(right);
 
-    // Клик для переключения bought
+    // Обработка клика для переключения bought
     div.addEventListener('click', (e) => {
-        // Если это было долгое нажатие или перетаскивание – игнорируем
-        if (dragData.isLongPress || dragData.isDragging) return;
-        // Если клик по кнопке удаления – уже обработано
         if (e.target.closest('.delete-btn')) return;
+        // Если было долгое нажатие или перетаскивание — игнорируем
+        if (dragData.isLongPress || dragData.isDragging) {
+            e.preventDefault();
+            return;
+        }
         toggleBought(product.id, product.bought);
     });
 
