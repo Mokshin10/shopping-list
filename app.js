@@ -63,14 +63,12 @@ catBtns.forEach(btn => {
 });
 
 // ================================================================
-// 5. DRAG-AND-DROP
+// 5. DRAG-AND-DROP (исправлен)
 // ================================================================
 let dragData = {
     isDragging: false,
     element: null,
     clone: null,
-    startX: 0,
-    startY: 0,
     offsetX: 0,
     offsetY: 0,
     productId: null,
@@ -134,7 +132,7 @@ function startDrag(e, productElement) {
     dragData.clone = createDragClone(productElement);
     productElement.style.opacity = '0.4';
 
-    // Запрещаем выделение текста
+    // Запрещаем выделение текста на всей странице
     document.body.style.userSelect = 'none';
     document.body.style.webkitUserSelect = 'none';
 
@@ -168,7 +166,7 @@ function onDragEnd(e) {
         const productId = dragData.productId;
         db.collection('products').doc(productId).update({ category: targetCategory })
             .catch(err => console.error('Ошибка обновления категории:', err));
-        // оптимистичное обновление
+        // Оптимистичное обновление
         const nameSpan = dragData.element.querySelector('.name');
         if (nameSpan) {
             const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
@@ -413,6 +411,8 @@ function createProductElement(product) {
     delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteProduct(product.id, product.name);
+        // Сбрасываем активное состояние, чтобы кнопка не оставалась красной
+        delBtn.blur();
     });
     right.appendChild(delBtn);
     div.appendChild(right);
