@@ -1,5 +1,5 @@
 // ================================================================
-// 1. НАСТРОЙКА FIREBASE (ЗАМЕНИТЕ НА СВОИ ДАННЫЕ)
+// 1. НАСТРОЙКА FIREBASE
 // ================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyBIw9xVGeDITBgllYPNL2KNqAikYlTArJo",
@@ -30,7 +30,7 @@ themeToggle.addEventListener('click', () => {
 });
 
 // ================================================================
-// 3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// 3. ВСПОМОГАТЕЛЬНЫЕ
 // ================================================================
 function isOlderThan24Hours(timestamp) {
     if (!timestamp) return false;
@@ -51,9 +51,8 @@ const archiveCount = document.getElementById('archiveCount');
 const dropZones = document.getElementById('dropZones');
 const dropZonesList = document.querySelectorAll('.drop-zone');
 
-// Категории
 const catBtns = document.querySelectorAll('.cat-btn');
-let selectedCategory = 'food'; // по умолчанию
+let selectedCategory = 'food';
 
 catBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -64,7 +63,7 @@ catBtns.forEach(btn => {
 });
 
 // ================================================================
-// 5. DRAG-AND-DROP (с поддержкой iOS)
+// 5. DRAG-AND-DROP
 // ================================================================
 let dragData = {
     isDragging: false,
@@ -77,11 +76,9 @@ let dragData = {
     productId: null,
     currentCategory: null,
     longPressTimer: null,
-    isLongPress: false,
-    moved: false // чтобы отличать клик от долгого нажатия с движением
+    isLongPress: false
 };
 
-// Создаём клон для перетаскивания
 function createDragClone(element) {
     const clone = document.createElement('div');
     clone.className = 'drag-clone';
@@ -114,12 +111,9 @@ function updateDragClone(clientX, clientY) {
     }
     dropZonesList.forEach(zone => {
         const rect = zone.getBoundingClientRect();
-        if (clientX >= rect.left && clientX <= rect.right &&
-            clientY >= rect.top && clientY <= rect.bottom) {
-            zone.classList.add('drag-over');
-        } else {
-            zone.classList.remove('drag-over');
-        }
+        const isOver = clientX >= rect.left && clientX <= rect.right &&
+                       clientY >= rect.top && clientY <= rect.bottom;
+        zone.classList.toggle('drag-over', isOver);
     });
 }
 
@@ -134,13 +128,15 @@ function startDrag(e, productElement) {
     dragData.currentCategory = productElement.dataset.category || 'other';
     dragData.offsetX = touch.clientX - rect.left;
     dragData.offsetY = touch.clientY - rect.top;
-    dragData.moved = false;
 
-    // Вибрация
     if (navigator.vibrate) navigator.vibrate(30);
 
     dragData.clone = createDragClone(productElement);
     productElement.style.opacity = '0.4';
+
+    // Запрещаем выделение текста
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
 
     showDropZones();
 
@@ -156,13 +152,11 @@ function startDrag(e, productElement) {
 function onDragMove(e) {
     e.preventDefault();
     const touch = e.touches ? e.touches[0] : e;
-    dragData.moved = true;
     updateDragClone(touch.clientX, touch.clientY);
 }
 
 function onDragEnd(e) {
     const touch = e.changedTouches ? e.changedTouches[0] : e;
-
     let targetCategory = null;
     dropZonesList.forEach(zone => {
         if (zone.classList.contains('drag-over')) {
@@ -172,10 +166,9 @@ function onDragEnd(e) {
 
     if (targetCategory && targetCategory !== dragData.currentCategory) {
         const productId = dragData.productId;
-        db.collection('products').doc(productId).update({
-            category: targetCategory
-        }).catch(err => console.error('Ошибка обновления категории:', err));
-        // Оптимистичное обновление UI
+        db.collection('products').doc(productId).update({ category: targetCategory })
+            .catch(err => console.error('Ошибка обновления категории:', err));
+        // оптимистичное обновление
         const nameSpan = dragData.element.querySelector('.name');
         if (nameSpan) {
             const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
@@ -185,7 +178,10 @@ function onDragEnd(e) {
         dragData.element.dataset.category = targetCategory;
     }
 
-    // Очистка
+    // Восстанавливаем выделение
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+
     if (dragData.clone) {
         dragData.clone.remove();
         dragData.clone = null;
@@ -205,78 +201,63 @@ function onDragEnd(e) {
     document.removeEventListener('mouseup', onDragEnd);
 }
 
-// Обработчики долгого нажатия с улучшенной логикой для iOS
 function handleLongPress(e, productElement) {
-    // Если это купленный товар – не активируем drag
-    if (productElement.classList.contains('bought')) return;
-
-    const startX = e.touches ? e.touches[0].clientX : e.clientX;
-    const startY = e.touches ? e.touches[0].clientY : e.clientY;
-    let moved = false;
-
-    const onMove = (ev) => {
-        const touch = ev.touches ? ev.touches[0] : ev;
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
-        if (Math.sqrt(dx*dx + dy*dy) > 10) {
-            moved = true;
-            clearTimeout(dragData.longPressTimer);
-            document.removeEventListener('touchmove', onMove);
-            document.removeEventListener('mousemove', onMove);
-        }
-    };
-
-    const onEnd = (ev) => {
-        clearTimeout(dragData.longPressTimer);
-        document.removeEventListener('touchmove', onMove);
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('touchend', onEnd);
-        document.removeEventListener('mouseup', onEnd);
-        // Если не было долгого нажатия и не было движения, то это клик
-        if (!dragData.isLongPress && !moved) {
-            // Клик обработается отдельно
-        }
-    };
-
     if (e.type === 'touchstart') {
-        document.addEventListener('touchmove', onMove, { passive: true });
-        document.addEventListener('touchend', onEnd, { passive: true });
         dragData.longPressTimer = setTimeout(() => {
-            if (!moved) {
-                dragData.isLongPress = true;
-                startDrag(e, productElement);
-            }
+            dragData.isLongPress = true;
+            startDrag(e, productElement);
         }, 500);
     } else if (e.type === 'mousedown') {
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onEnd);
         dragData.longPressTimer = setTimeout(() => {
-            if (!moved) {
-                dragData.isLongPress = true;
-                startDrag(e, productElement);
-            }
+            dragData.isLongPress = true;
+            startDrag(e, productElement);
         }, 500);
     }
 }
 
-// Привязываем события к элементам продуктов
-function attachDragEvents(element, product) {
-    if (product.bought) return; // только для активных
+function cancelLongPress() {
+    if (dragData.longPressTimer) {
+        clearTimeout(dragData.longPressTimer);
+        dragData.longPressTimer = null;
+    }
+    dragData.isLongPress = false;
+}
 
+function attachDragEvents(element, product) {
+    if (product.bought) return;
     element.addEventListener('touchstart', function(e) {
         if (e.target.closest('.delete-btn')) return;
         handleLongPress(e, element);
     }, { passive: true });
+
+    element.addEventListener('touchmove', function(e) {
+        cancelLongPress();
+    }, { passive: true });
+
+    element.addEventListener('touchend', function(e) {
+        if (dragData.isLongPress) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        cancelLongPress();
+    }, { passive: false });
 
     element.addEventListener('mousedown', function(e) {
         if (e.target.closest('.delete-btn')) return;
         handleLongPress(e, element);
     });
 
-    // Отменяем долгое нажатие, если палец/мышь ушли за пределы элемента
-    element.addEventListener('touchmove', function(e) {
-        // ничего не делаем, обработка в handleLongPress через document
-    }, { passive: true });
+    element.addEventListener('mousemove', function(e) {
+        cancelLongPress();
+    });
+
+    element.addEventListener('mouseup', function(e) {
+        if (dragData.isLongPress) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        cancelLongPress();
+    });
 }
 
 // ================================================================
@@ -345,7 +326,7 @@ async function archiveOldProducts(products) {
 }
 
 // ================================================================
-// 7. ОТРИСОВКА СПИСКА
+// 7. ОТРИСОВКА
 // ================================================================
 function renderProducts(products) {
     productList.innerHTML = '';
@@ -363,27 +344,20 @@ function renderProducts(products) {
         return { food, other };
     };
 
-    // Активные
     const activeGroups = groupByCategory(active);
     if (activeGroups.food.length) {
         const label = document.createElement('div');
         label.className = 'category-label';
         label.textContent = '🍔 Еда';
         productList.appendChild(label);
-        activeGroups.food.forEach(p => {
-            const el = createProductElement(p);
-            productList.appendChild(el);
-        });
+        activeGroups.food.forEach(p => productList.appendChild(createProductElement(p)));
     }
     if (activeGroups.other.length) {
         const label = document.createElement('div');
         label.className = 'category-label';
         label.textContent = '🛒 Остальное';
         productList.appendChild(label);
-        activeGroups.other.forEach(p => {
-            const el = createProductElement(p);
-            productList.appendChild(el);
-        });
+        activeGroups.other.forEach(p => productList.appendChild(createProductElement(p)));
     }
 
     if (bought.length > 0) {
@@ -392,27 +366,20 @@ function renderProducts(products) {
         productList.appendChild(divider);
     }
 
-    // Купленные
     const boughtGroups = groupByCategory(bought);
     if (boughtGroups.food.length) {
         const label = document.createElement('div');
         label.className = 'category-label bought-label';
         label.textContent = '🍔 Еда (куплено)';
         productList.appendChild(label);
-        boughtGroups.food.forEach(p => {
-            const el = createProductElement(p);
-            productList.appendChild(el);
-        });
+        boughtGroups.food.forEach(p => productList.appendChild(createProductElement(p)));
     }
     if (boughtGroups.other.length) {
         const label = document.createElement('div');
         label.className = 'category-label bought-label';
         label.textContent = '🛒 Остальное (куплено)';
         productList.appendChild(label);
-        boughtGroups.other.forEach(p => {
-            const el = createProductElement(p);
-            productList.appendChild(el);
-        });
+        boughtGroups.other.forEach(p => productList.appendChild(createProductElement(p)));
     }
 }
 
@@ -450,18 +417,12 @@ function createProductElement(product) {
     right.appendChild(delBtn);
     div.appendChild(right);
 
-    // Обработка клика для переключения bought
     div.addEventListener('click', (e) => {
+        if (dragData.isLongPress || dragData.isDragging) return;
         if (e.target.closest('.delete-btn')) return;
-        // Если было долгое нажатие или перетаскивание — игнорируем
-        if (dragData.isLongPress || dragData.isDragging) {
-            e.preventDefault();
-            return;
-        }
         toggleBought(product.id, product.bought);
     });
 
-    // Прикрепляем события для drag-and-drop (только для активных)
     if (!product.bought) {
         attachDragEvents(div, product);
     }
@@ -486,7 +447,7 @@ function renderArchive(archivedItems) {
 }
 
 // ================================================================
-// 8. ПОДПИСКИ НА ИЗМЕНЕНИЯ (realtime)
+// 8. ПОДПИСКИ
 // ================================================================
 db.collection('products')
     .orderBy('bought', 'asc')
@@ -522,7 +483,7 @@ db.collection('archive')
     });
 
 // ================================================================
-// 9. УПРАВЛЕНИЕ АРХИВОМ
+// 9. АРХИВ - СВОРАЧИВАНИЕ
 // ================================================================
 let archiveVisible = false;
 archiveToggle.addEventListener('click', () => {
