@@ -33,9 +33,9 @@
         </div>
     </div>
 
-    <!-- Нижняя панель -->
+    <!-- Нижняя панель: две строки -->
     <div class="input-area" id="inputArea">
-        <!-- Кнопки выбора категории (теперь сверху) -->
+        <!-- Строка 1: выбор категории -->
         <div class="category-selector">
             <button class="cat-btn active" data-category="food" title="Еда">
                 <span>🍔</span> Еда
@@ -44,12 +44,15 @@
                 <span>🛒</span> Остальное
             </button>
         </div>
-        <!-- Строка ввода -->
+        <!-- Строка 2: ввод и кнопка Добавить -->
         <div class="input-row">
             <input type="text" id="productInput" placeholder="Напишите продукт..." autocomplete="off" />
             <button id="addButton">Добавить</button>
         </div>
     </div>
+
+    <!-- Контейнер для уведомлений -->
+    <div id="toastContainer" class="toast-container"></div>
 
     <script src="app.js"></script>
 </body>
