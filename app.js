@@ -40,27 +40,7 @@ function isOlderThan24Hours(timestamp) {
 }
 
 // ================================================================
-// 4. УВЕДОМЛЕНИЯ (TOAST)
-// ================================================================
-const toastContainer = document.getElementById('toastContainer');
-
-function showToast(message) {
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = message;
-    toastContainer.appendChild(toast);
-
-    // Автоматическое скрытие через 2.5 секунды
-    setTimeout(() => {
-        toast.classList.add('hide');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 2500);
-}
-
-// ================================================================
-// 5. DOM-ЭЛЕМЕНТЫ
+// 4. DOM-ЭЛЕМЕНТЫ
 // ================================================================
 const productList = document.getElementById('productList');
 const productInput = document.getElementById('productInput');
@@ -83,7 +63,7 @@ catBtns.forEach(btn => {
 });
 
 // ================================================================
-// 6. DRAG-AND-DROP
+// 5. DRAG-AND-DROP
 // ================================================================
 let dragData = {
     isDragging: false,
@@ -184,17 +164,15 @@ function onDragEnd(e) {
     if (targetCategory && targetCategory !== dragData.currentCategory) {
         const productId = dragData.productId;
         db.collection('products').doc(productId).update({ category: targetCategory })
-            .then(() => {
-                const nameSpan = dragData.element.querySelector('.name');
-                if (nameSpan) {
-                    const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
-                    const oldIcon = dragData.currentCategory === 'food' ? '🍔 ' : '🛒 ';
-                    nameSpan.textContent = nameSpan.textContent.replace(oldIcon, newIcon);
-                }
-                dragData.element.dataset.category = targetCategory;
-                showToast(`Категория изменена на ${targetCategory === 'food' ? 'Еда' : 'Остальное'}`);
-            })
             .catch(err => console.error('Ошибка обновления категории:', err));
+        // Оптимистичное обновление (пока Firestore не вернёт ответ)
+        const nameSpan = dragData.element.querySelector('.name');
+        if (nameSpan) {
+            const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
+            const oldIcon = dragData.currentCategory === 'food' ? '🍔 ' : '🛒 ';
+            nameSpan.textContent = nameSpan.textContent.replace(oldIcon, newIcon);
+        }
+        dragData.element.dataset.category = targetCategory;
     }
 
     document.body.style.userSelect = '';
@@ -279,7 +257,7 @@ function attachDragEvents(element, product) {
 }
 
 // ================================================================
-// 7. ОСНОВНАЯ ЛОГИКА
+// 6. ОСНОВНАЯ ЛОГИКА
 // ================================================================
 addButton.addEventListener('click', addProduct);
 productInput.addEventListener('keypress', (e) => {
@@ -299,7 +277,6 @@ async function addProduct() {
         });
         productInput.value = '';
         productInput.focus();
-        showToast(`✅ Добавлено: ${name}`);
     } catch (error) {
         console.error('Ошибка добавления:', error);
         alert('Не удалось добавить. Проверьте интернет.');
@@ -312,8 +289,6 @@ async function toggleBought(id, currentBought) {
             bought: !currentBought,
             boughtAt: !currentBought ? firebase.firestore.FieldValue.serverTimestamp() : null
         });
-        const status = !currentBought ? 'куплено' : 'возвращено в список';
-        showToast(`🔄 ${status}`);
     } catch (error) {
         console.error('Ошибка обновления:', error);
     }
@@ -323,7 +298,6 @@ async function deleteProduct(id, name) {
     if (!confirm(`Удалить "${name}"?`)) return;
     try {
         await db.collection('products').doc(id).delete();
-        showToast(`🗑 Удалено: ${name}`);
     } catch (error) {
         console.error('Ошибка удаления:', error);
     }
@@ -340,7 +314,6 @@ async function archiveOldProducts(products) {
                     createdAt: product.createdAt
                 });
                 await db.collection('products').doc(product.id).delete();
-                showToast(`📦 Архивировано: ${product.name}`);
             } catch (error) {
                 console.error('Ошибка архивации:', error);
             }
@@ -349,7 +322,7 @@ async function archiveOldProducts(products) {
 }
 
 // ================================================================
-// 8. ОТРИСОВКА
+// 7. ОТРИСОВКА
 // ================================================================
 function renderProducts(products) {
     productList.innerHTML = '';
@@ -471,8 +444,9 @@ function renderArchive(archivedItems) {
 }
 
 // ================================================================
-// 9. ПОДПИСКИ
+// 8. ПОДПИСКИ НА ИЗМЕНЕНИЯ (realtime)
 // ================================================================
+// Подписка на продукты — любой вызов onSnapshot обновляет список мгновенно.
 db.collection('products')
     .orderBy('bought', 'asc')
     .onSnapshot((snapshot) => {
@@ -481,6 +455,7 @@ db.collection('products')
             const data = doc.data();
             products.push({ id: doc.id, ...data });
         });
+        // Сортировка на клиенте для удобства
         products.sort((a, b) => {
             if (a.bought !== b.bought) return a.bought ? 1 : -1;
             const timeA = a.createdAt?.toMillis?.() || 0;
@@ -507,7 +482,7 @@ db.collection('archive')
     });
 
 // ================================================================
-// 10. АРХИВ - СВОРАЧИВАНИЕ
+// 9. АРХИВ - СВОРАЧИВАНИЕ
 // ================================================================
 let archiveVisible = false;
 archiveToggle.addEventListener('click', () => {
@@ -519,6 +494,6 @@ archiveToggle.addEventListener('click', () => {
 });
 
 // ================================================================
-// 11. СТАРТ
+// 10. СТАРТ
 // ================================================================
 productInput.focus();
