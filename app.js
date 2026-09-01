@@ -40,7 +40,27 @@ function isOlderThan24Hours(timestamp) {
 }
 
 // ================================================================
-// 4. DOM-ЭЛЕМЕНТЫ
+// 4. УВЕДОМЛЕНИЯ (TOAST)
+// ================================================================
+const toastContainer = document.getElementById('toastContainer');
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+
+    // Автоматическое скрытие через 2.5 секунды
+    setTimeout(() => {
+        toast.classList.add('hide');
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 2500);
+}
+
+// ================================================================
+// 5. DOM-ЭЛЕМЕНТЫ
 // ================================================================
 const productList = document.getElementById('productList');
 const productInput = document.getElementById('productInput');
@@ -63,7 +83,7 @@ catBtns.forEach(btn => {
 });
 
 // ================================================================
-// 5. DRAG-AND-DROP (исправлен)
+// 6. DRAG-AND-DROP
 // ================================================================
 let dragData = {
     isDragging: false,
@@ -132,7 +152,6 @@ function startDrag(e, productElement) {
     dragData.clone = createDragClone(productElement);
     productElement.style.opacity = '0.4';
 
-    // Запрещаем выделение текста на всей странице
     document.body.style.userSelect = 'none';
     document.body.style.webkitUserSelect = 'none';
 
@@ -165,18 +184,19 @@ function onDragEnd(e) {
     if (targetCategory && targetCategory !== dragData.currentCategory) {
         const productId = dragData.productId;
         db.collection('products').doc(productId).update({ category: targetCategory })
+            .then(() => {
+                const nameSpan = dragData.element.querySelector('.name');
+                if (nameSpan) {
+                    const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
+                    const oldIcon = dragData.currentCategory === 'food' ? '🍔 ' : '🛒 ';
+                    nameSpan.textContent = nameSpan.textContent.replace(oldIcon, newIcon);
+                }
+                dragData.element.dataset.category = targetCategory;
+                showToast(`Категория изменена на ${targetCategory === 'food' ? 'Еда' : 'Остальное'}`);
+            })
             .catch(err => console.error('Ошибка обновления категории:', err));
-        // Оптимистичное обновление
-        const nameSpan = dragData.element.querySelector('.name');
-        if (nameSpan) {
-            const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
-            const oldIcon = dragData.currentCategory === 'food' ? '🍔 ' : '🛒 ';
-            nameSpan.textContent = nameSpan.textContent.replace(oldIcon, newIcon);
-        }
-        dragData.element.dataset.category = targetCategory;
     }
 
-    // Восстанавливаем выделение
     document.body.style.userSelect = '';
     document.body.style.webkitUserSelect = '';
 
@@ -259,7 +279,7 @@ function attachDragEvents(element, product) {
 }
 
 // ================================================================
-// 6. ОСНОВНАЯ ЛОГИКА
+// 7. ОСНОВНАЯ ЛОГИКА
 // ================================================================
 addButton.addEventListener('click', addProduct);
 productInput.addEventListener('keypress', (e) => {
@@ -279,6 +299,7 @@ async function addProduct() {
         });
         productInput.value = '';
         productInput.focus();
+        showToast(`✅ Добавлено: ${name}`);
     } catch (error) {
         console.error('Ошибка добавления:', error);
         alert('Не удалось добавить. Проверьте интернет.');
@@ -291,6 +312,8 @@ async function toggleBought(id, currentBought) {
             bought: !currentBought,
             boughtAt: !currentBought ? firebase.firestore.FieldValue.serverTimestamp() : null
         });
+        const status = !currentBought ? 'куплено' : 'возвращено в список';
+        showToast(`🔄 ${status}`);
     } catch (error) {
         console.error('Ошибка обновления:', error);
     }
@@ -300,6 +323,7 @@ async function deleteProduct(id, name) {
     if (!confirm(`Удалить "${name}"?`)) return;
     try {
         await db.collection('products').doc(id).delete();
+        showToast(`🗑 Удалено: ${name}`);
     } catch (error) {
         console.error('Ошибка удаления:', error);
     }
@@ -316,6 +340,7 @@ async function archiveOldProducts(products) {
                     createdAt: product.createdAt
                 });
                 await db.collection('products').doc(product.id).delete();
+                showToast(`📦 Архивировано: ${product.name}`);
             } catch (error) {
                 console.error('Ошибка архивации:', error);
             }
@@ -324,7 +349,7 @@ async function archiveOldProducts(products) {
 }
 
 // ================================================================
-// 7. ОТРИСОВКА
+// 8. ОТРИСОВКА
 // ================================================================
 function renderProducts(products) {
     productList.innerHTML = '';
@@ -411,7 +436,6 @@ function createProductElement(product) {
     delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteProduct(product.id, product.name);
-        // Сбрасываем активное состояние, чтобы кнопка не оставалась красной
         delBtn.blur();
     });
     right.appendChild(delBtn);
@@ -447,7 +471,7 @@ function renderArchive(archivedItems) {
 }
 
 // ================================================================
-// 8. ПОДПИСКИ
+// 9. ПОДПИСКИ
 // ================================================================
 db.collection('products')
     .orderBy('bought', 'asc')
@@ -483,7 +507,7 @@ db.collection('archive')
     });
 
 // ================================================================
-// 9. АРХИВ - СВОРАЧИВАНИЕ
+// 10. АРХИВ - СВОРАЧИВАНИЕ
 // ================================================================
 let archiveVisible = false;
 archiveToggle.addEventListener('click', () => {
@@ -495,6 +519,6 @@ archiveToggle.addEventListener('click', () => {
 });
 
 // ================================================================
-// 10. СТАРТ
+// 11. СТАРТ
 // ================================================================
 productInput.focus();
