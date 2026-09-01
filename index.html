@@ -17,7 +17,6 @@
             <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
         </div>
 
-        <!-- Зоны для сброса при перетаскивании -->
         <div id="dropZones" class="drop-zones hidden">
             <div class="drop-zone" data-category="food">🍔 Еда</div>
             <div class="drop-zone" data-category="other">🛒 Остальное</div>
@@ -33,9 +32,7 @@
         </div>
     </div>
 
-    <!-- Нижняя панель: две строки -->
     <div class="input-area" id="inputArea">
-        <!-- Строка 1: выбор категории -->
         <div class="category-selector">
             <button class="cat-btn active" data-category="food" title="Еда">
                 <span>🍔</span> Еда
@@ -44,15 +41,11 @@
                 <span>🛒</span> Остальное
             </button>
         </div>
-        <!-- Строка 2: ввод и кнопка Добавить -->
         <div class="input-row">
             <input type="text" id="productInput" placeholder="Напишите продукт..." autocomplete="off" />
             <button id="addButton">Добавить</button>
         </div>
     </div>
-
-    <!-- Контейнер для уведомлений -->
-    <div id="toastContainer" class="toast-container"></div>
 
     <script src="app.js"></script>
 </body>
