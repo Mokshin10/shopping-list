@@ -4,9 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Список покупок</title>
-    <!-- Шрифт JetBrains Mono -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
-    <!-- Firebase Compat SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <link rel="stylesheet" href="style.css" />
@@ -19,23 +17,18 @@
             <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
         </div>
 
-        <!-- Зоны для сброса при перетаскивании (изначально скрыты) -->
         <div id="dropZones" class="drop-zones hidden">
             <div class="drop-zone" data-category="food">🍔 Еда</div>
             <div class="drop-zone" data-category="other">🛒 Остальное</div>
         </div>
 
-        <div class="product-list" id="productList">
-            <!-- Продукты добавляются динамически -->
-        </div>
+        <div class="product-list" id="productList"></div>
 
         <div class="archive-container" id="archiveContainer">
             <button class="archive-toggle" id="archiveToggle">
                 <span>📦</span> Куплено ранее (<span id="archiveCount">0</span>)
             </button>
-            <div class="archive-items" id="archiveItems" style="display: none;">
-                <!-- Архивные записи -->
-            </div>
+            <div class="archive-items" id="archiveItems" style="display: none;"></div>
         </div>
     </div>
 
