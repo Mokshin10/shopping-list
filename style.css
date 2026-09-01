@@ -1,6 +1,9 @@
 /* ===== Шрифт ===== */
 * {
     font-family: 'JetBrains Mono', 'Courier New', monospace, sans-serif;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* ===== СВЕТЛАЯ ТЕМА ===== */
@@ -68,7 +71,6 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent; /* убираем серый фон при тапе на iOS */
 }
 
 body {
@@ -130,7 +132,7 @@ body {
     background: var(--bg-item);
 }
 
-/* ===== Зоны сброса для drag-and-drop ===== */
+/* ===== Зоны сброса ===== */
 .drop-zones {
     display: flex;
     gap: 10px;
@@ -179,11 +181,8 @@ body {
     transition: background 0.2s, opacity 0.2s, transform 0.1s;
     cursor: pointer;
     box-shadow: var(--shadow-item);
-    user-select: none;
-    -webkit-user-select: none; /* запрет выделения на iOS */
-    -webkit-touch-callout: none; /* запрет контекстного меню */
+    touch-action: none;
     color: var(--text-primary);
-    touch-action: none; /* отключаем стандартные жесты (зум, скролл) */
 }
 
 .product-item:active {
@@ -200,7 +199,7 @@ body {
     font-size: 17px;
     color: var(--text-primary);
     word-break: break-word;
-    pointer-events: none; /* чтобы текст не мешал drag */
+    pointer-events: none;
 }
 
 .product-item.bought .name {
@@ -225,7 +224,7 @@ body {
     padding: 4px 8px;
     border-radius: 8px;
     transition: background 0.2s, color 0.2s;
-    pointer-events: auto; /* чтобы кнопка удаления работала */
+    pointer-events: auto;
 }
 
 .product-item .delete-btn:hover {
