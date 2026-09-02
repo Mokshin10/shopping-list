@@ -8,6 +8,7 @@
     user-select: none;
 }
 
+/* ===== СТАНДАРТНАЯ ТЁМНАЯ ТЕМА (по умолчанию) ===== */
 :root {
     --bg-body: #0a0a0a;
     --bg-app: #1c1c1e;
@@ -41,36 +42,37 @@
     --delete-bg: #ff3b30;
 }
 
-[data-theme="light"] {
-    --bg-body: #e5e5ea;
-    --bg-app: #ffffff;
-    --bg-input: #f8f8fc;
-    --bg-item: #f8f8fc;
-    --bg-item-bought: #e5e5ea;
-    --text-primary: #1c1c1e;
-    --text-secondary: #8e8e93;
+/* ===== ТЕМА ARCH LINUX (тёмно-синяя) ===== */
+[data-theme="arch"] {
+    --bg-body: #1a1b22;
+    --bg-app: #23242c;
+    --bg-input: #2e3038;
+    --bg-item: #2e3038;
+    --bg-item-bought: #3a3c46;
+    --text-primary: #e4e4e7;
+    --text-secondary: #9a9ba3;
     --text-inverse: #ffffff;
-    --border-color: #d1d1d6;
-    --accent: #007aff;
-    --accent-soft: rgba(0, 122, 255, 0.25);
-    --accent-glow: 0 0 15px rgba(0, 122, 255, 0.3);
-    --shadow: 0 0 20px rgba(0,0,0,0.1);
-    --shadow-item: 0 1px 2px rgba(0,0,0,0.05);
-    --divider: #d1d1d6;
-    --scrollbar-thumb: #c1c1c6;
-    --cat-btn-bg: #e5e5ea;
-    --cat-btn-active-bg: var(--accent);
-    --cat-btn-color: var(--text-secondary);
+    --border-color: #3a3c46;
+    --accent: #1793d1;
+    --accent-soft: rgba(23, 147, 209, 0.3);
+    --accent-glow: 0 0 15px rgba(23, 147, 209, 0.4);
+    --shadow: 0 0 20px rgba(0,0,0,0.8);
+    --shadow-item: 0 1px 2px rgba(0,0,0,0.4);
+    --divider: #3a3c46;
+    --scrollbar-thumb: #4a4c56;
+    --cat-btn-bg: #2e3038;
+    --cat-btn-active-bg: #1793d1;
+    --cat-btn-color: #9a9ba3;
     --cat-btn-active-color: white;
-    --add-btn-bg: var(--accent);
+    --add-btn-bg: #1793d1;
     --add-btn-color: white;
-    --add-btn-hover: #0055b3;
-    --modal-overlay: rgba(0,0,0,0.5);
-    --modal-bg: #ffffff;
-    --modal-text: #1c1c1e;
-    --avatar-bg: #e5e5ea;
-    --avatar-selected: var(--accent);
-    --drag-indicator: var(--accent);
+    --add-btn-hover: #0f7ab0;
+    --modal-overlay: rgba(0,0,0,0.8);
+    --modal-bg: #2e3038;
+    --modal-text: #e4e4e7;
+    --avatar-bg: #2e3038;
+    --avatar-selected: #1793d1;
+    --drag-indicator: #1793d1;
     --delete-bg: #ff3b30;
 }
 
@@ -379,7 +381,40 @@ body {
     pointer-events: none;
 }
 
-/* ===== УМЕНЬШЕННАЯ КНОПКА УДАЛЕНИЯ ===== */
+/* ===== КНОПКА ДЛЯ ПРАВОГО СВАЙПА ===== */
+.complete-btn-swipe {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    bottom: 2px;
+    width: 76px;
+    background: rgba(255, 204, 0, 0.85);
+    color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s, opacity 0.1s ease;
+    pointer-events: auto;
+    border-radius: 12px;
+    opacity: 0;
+}
+.complete-btn-swipe:active {
+    background: #f1c40f;
+}
+.complete-btn-swipe.return {
+    background: rgba(52, 199, 89, 0.85);
+    color: white;
+}
+.complete-btn-swipe.return:active {
+    background: #27ae60;
+}
+
+/* ===== КНОПКА УДАЛЕНИЯ ===== */
 .delete-btn-swipe {
     position: absolute;
     right: 2px;
@@ -399,7 +434,7 @@ body {
     transition: background 0.2s, opacity 0.1s ease;
     pointer-events: auto;
     border-radius: 12px;
-    opacity: 0; /* всегда скрыта по умолчанию */
+    opacity: 0;
 }
 .delete-btn-swipe:active {
     background: #d63031;
