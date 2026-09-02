@@ -202,7 +202,6 @@ else updateProfileDisplay();
 const themeToggle = document.getElementById('themeToggle');
 const storedTheme = localStorage.getItem('theme') || 'dark';
 document.documentElement.setAttribute('data-theme', storedTheme);
-// Иконки: для тёмной – 🌙, для Arch – 🐧
 themeToggle.textContent = storedTheme === 'dark' ? '🌙' : '🐧';
 themeToggle.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
@@ -480,13 +479,22 @@ function initSwipe(element, wrapper, productId, isBought) {
             swipeActive = true;
             direction = deltaX > 0 ? 1 : -1;
             cancelLongPress();
-            if (direction === 1 && completeBtn) {
+
+            // Определяем, какую кнопку показывать
+            if (direction === 1 && !isBought && completeBtn) {
+                // Активный товар, правый свайп – купить
+                completeBtn.style.transition = 'opacity 0.1s ease';
+                completeBtn.style.opacity = '1';
+            } else if (direction === -1 && isBought && completeBtn) {
+                // Купленный товар, левый свайп – вернуть
                 completeBtn.style.transition = 'opacity 0.1s ease';
                 completeBtn.style.opacity = '1';
             } else if (direction === -1 && !isBought && deleteBtn) {
+                // Активный товар, левый свайп – удалить
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '1';
-            } else if (direction === -1 && isBought) {
+            } else {
+                // Неподдерживаемое направление (например, правый свайп для купленных)
                 isSwiping = false;
                 swipeActive = false;
                 direction = 0;
@@ -507,18 +515,26 @@ function initSwipe(element, wrapper, productId, isBought) {
 
     function onEnd() {
         if (isSwiping) {
-            if (direction === 1 && currentX > SWIPE_THRESHOLD) {
-                if (isBought) {
-                    toggleBought(productId, true);
-                } else {
-                    toggleBought(productId, false);
-                }
+            // Обработка правого свайпа (только для активных)
+            if (direction === 1 && currentX > SWIPE_THRESHOLD && !isBought) {
+                toggleBought(productId, false); // купить
                 element.style.transition = 'transform 0.2s ease';
                 element.style.transform = 'translateX(0)';
                 setTimeout(() => {
                     element.style.transition = '';
                 }, 250);
-            } else if (direction === -1 && currentX < -SWIPE_THRESHOLD && !isBought) {
+            }
+            // Обработка левого свайпа для купленных (вернуть)
+            else if (direction === -1 && currentX < -SWIPE_THRESHOLD && isBought) {
+                toggleBought(productId, true); // вернуть
+                element.style.transition = 'transform 0.2s ease';
+                element.style.transform = 'translateX(0)';
+                setTimeout(() => {
+                    element.style.transition = '';
+                }, 250);
+            }
+            // Обработка левого свайпа для активных (удалить)
+            else if (direction === -1 && currentX < -SWIPE_THRESHOLD && !isBought) {
                 const name = element.querySelector('.name')?.textContent || 'продукт';
                 if (confirm('Удалить "' + name + '"?')) {
                     deleteProduct(productId, name);
@@ -530,12 +546,15 @@ function initSwipe(element, wrapper, productId, isBought) {
                     }, 250);
                 }
             } else {
+                // Не довели до порога – возвращаем
                 element.style.transition = 'transform 0.2s ease';
                 element.style.transform = 'translateX(0)';
                 setTimeout(() => {
                     element.style.transition = '';
                 }, 250);
             }
+
+            // Скрываем кнопки
             if (deleteBtn) {
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '0';
@@ -598,6 +617,7 @@ function initSwipe(element, wrapper, productId, isBought) {
         onEnd();
     });
 
+    // Обработчики кликов по кнопкам (на случай, если пользователь нажмёт на кнопку)
     if (deleteBtn && !isBought) {
         deleteBtn.addEventListener('click', function(e) {
             e.stopPropagation();
