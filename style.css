@@ -385,7 +385,7 @@ body {
     pointer-events: none;
 }
 
-/* ===== КНОПКА ДЛЯ ПРАВОГО СВАЙПА ===== */
+/* ===== КНОПКА ДЛЯ ПРАВОГО СВАЙПА (активные -> купить) ===== */
 .complete-btn-swipe {
     position: absolute;
     left: 2px;
@@ -410,15 +410,34 @@ body {
 .complete-btn-swipe:active {
     background: #f1c40f;
 }
-.complete-btn-swipe.return {
+
+/* ===== КНОПКА ДЛЯ ЛЕВОГО СВАЙПА (купленные -> вернуть) ===== */
+.return-btn-swipe {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    bottom: 2px;
+    width: 76px;
     background: rgba(52, 199, 89, 0.85);
     color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s, opacity 0.1s ease;
+    pointer-events: auto;
+    border-radius: 12px;
+    opacity: 0;
 }
-.complete-btn-swipe.return:active {
+.return-btn-swipe:active {
     background: #27ae60;
 }
 
-/* ===== КНОПКА УДАЛЕНИЯ ===== */
+/* ===== КНОПКА УДАЛЕНИЯ (активные -> левый свайп) ===== */
 .delete-btn-swipe {
     position: absolute;
     right: 2px;
