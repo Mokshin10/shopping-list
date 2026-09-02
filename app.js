@@ -32,11 +32,14 @@ themeToggle.addEventListener('click', () => {
 // ================================================================
 // 3. ВСПОМОГАТЕЛЬНЫЕ
 // ================================================================
-function isOlderThan24Hours(timestamp) {
+// Новая функция: проверяет, была ли покупка в предыдущие дни (до сегодняшней полуночи)
+function isFromPreviousDay(timestamp) {
     if (!timestamp) return false;
     const now = new Date();
-    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    return timestamp.toDate() < dayAgo;
+    // Начало сегодняшнего дня (00:00:00)
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Если время покупки раньше начала сегодняшнего дня -> это предыдущий день
+    return timestamp.toDate() < todayStart;
 }
 
 // ================================================================
@@ -63,7 +66,7 @@ catBtns.forEach(btn => {
 });
 
 // ================================================================
-// 5. DRAG-AND-DROP
+// 5. DRAG-AND-DROP (с поддержкой скролла)
 // ================================================================
 let dragData = {
     isDragging: false,
@@ -74,7 +77,10 @@ let dragData = {
     productId: null,
     currentCategory: null,
     longPressTimer: null,
-    isLongPress: false
+    isLongPress: false,
+    startTouchX: 0,
+    startTouchY: 0,
+    isScrolling: false
 };
 
 function createDragClone(element) {
@@ -165,7 +171,6 @@ function onDragEnd(e) {
         const productId = dragData.productId;
         db.collection('products').doc(productId).update({ category: targetCategory })
             .catch(err => console.error('Ошибка обновления категории:', err));
-        // Оптимистичное обновление (пока Firestore не вернёт ответ)
         const nameSpan = dragData.element.querySelector('.name');
         if (nameSpan) {
             const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
@@ -190,6 +195,7 @@ function onDragEnd(e) {
     dragData.isDragging = false;
     dragData.productId = null;
     dragData.currentCategory = null;
+    dragData.isScrolling = false;
 
     document.removeEventListener('touchmove', onDragMove);
     document.removeEventListener('touchend', onDragEnd);
@@ -199,9 +205,16 @@ function onDragEnd(e) {
 
 function handleLongPress(e, productElement) {
     if (e.type === 'touchstart') {
+        const touch = e.touches[0];
+        dragData.startTouchX = touch.clientX;
+        dragData.startTouchY = touch.clientY;
+        dragData.isScrolling = false;
+
         dragData.longPressTimer = setTimeout(() => {
-            dragData.isLongPress = true;
-            startDrag(e, productElement);
+            if (!dragData.isScrolling) {
+                dragData.isLongPress = true;
+                startDrag(e, productElement);
+            }
         }, 500);
     } else if (e.type === 'mousedown') {
         dragData.longPressTimer = setTimeout(() => {
@@ -221,13 +234,22 @@ function cancelLongPress() {
 
 function attachDragEvents(element, product) {
     if (product.bought) return;
+
     element.addEventListener('touchstart', function(e) {
         if (e.target.closest('.delete-btn')) return;
         handleLongPress(e, element);
     }, { passive: true });
 
     element.addEventListener('touchmove', function(e) {
-        cancelLongPress();
+        if (dragData.startTouchX && dragData.startTouchY) {
+            const touch = e.touches[0];
+            const dx = touch.clientX - dragData.startTouchX;
+            const dy = touch.clientY - dragData.startTouchY;
+            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                dragData.isScrolling = true;
+                cancelLongPress();
+            }
+        }
     }, { passive: true });
 
     element.addEventListener('touchend', function(e) {
@@ -236,6 +258,7 @@ function attachDragEvents(element, product) {
             e.stopPropagation();
         }
         cancelLongPress();
+        dragData.isScrolling = false;
     }, { passive: false });
 
     element.addEventListener('mousedown', function(e) {
@@ -303,9 +326,11 @@ async function deleteProduct(id, name) {
     }
 }
 
+// Обновлённая функция архивации: переносит только те купленные продукты,
+// у которых дата покупки раньше сегодняшней полуночи (т.е. купленные в предыдущие дни)
 async function archiveOldProducts(products) {
     for (const product of products) {
-        if (product.bought && product.boughtAt && isOlderThan24Hours(product.boughtAt)) {
+        if (product.bought && product.boughtAt && isFromPreviousDay(product.boughtAt)) {
             try {
                 await db.collection('archive').add({
                     name: product.name,
@@ -444,9 +469,8 @@ function renderArchive(archivedItems) {
 }
 
 // ================================================================
-// 8. ПОДПИСКИ НА ИЗМЕНЕНИЯ (realtime)
+// 8. ПОДПИСКИ
 // ================================================================
-// Подписка на продукты — любой вызов onSnapshot обновляет список мгновенно.
 db.collection('products')
     .orderBy('bought', 'asc')
     .onSnapshot((snapshot) => {
@@ -455,7 +479,6 @@ db.collection('products')
             const data = doc.data();
             products.push({ id: doc.id, ...data });
         });
-        // Сортировка на клиенте для удобства
         products.sort((a, b) => {
             if (a.bought !== b.bought) return a.bought ? 1 : -1;
             const timeA = a.createdAt?.toMillis?.() || 0;
