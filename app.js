@@ -267,7 +267,6 @@ let dragData = {
     isScrolling: false
 };
 
-// Глобальный флаг для предотвращения конфликта свайпа и долгого нажатия
 let swipeActive = false;
 
 function createDragClone(element) {
@@ -312,9 +311,6 @@ function startDrag(e, productElement) {
     dragData.currentCategory = normalizeCategory(productElement.dataset.category);
     dragData.offsetX = touch.clientX - rect.left;
     dragData.offsetY = touch.clientY - rect.top;
-
-    // Убираем любые изменения opacity кнопки при драге
-    // Кнопка всегда скрыта по умолчанию, и только свайп её показывает
 
     const items = productList.querySelectorAll('.product-item');
     dragData.startIndex = Array.from(items).indexOf(productElement);
@@ -401,8 +397,6 @@ function onDragEnd(e) {
         batch.commit().catch(err => console.error('Ошибка обновления порядка:', err));
     }
 
-    // Никаких изменений opacity кнопки при завершении драга
-
     document.body.style.userSelect = '';
     document.body.style.webkitUserSelect = '';
     if (dragData.clone) {
@@ -437,7 +431,7 @@ function cancelLongPress() {
 }
 
 // ================================================================
-// 8. SWIPE-TO-DELETE (обновлённая логика opacity)
+// 8. SWIPE-TO-DELETE (исправлен: долгое нажатие не отменяется при касании)
 // ================================================================
 const SWIPE_THRESHOLD = 60;
 
@@ -451,13 +445,11 @@ function initSwipe(element, wrapper, productId) {
     let isScrolling = false;
     let isPointerDown = false;
 
-    // Получаем кнопку удаления для этого элемента
     const deleteBtn = wrapper.querySelector('.delete-btn-swipe');
 
-    // Общие функции
     function onStart(clientX, clientY) {
-        // Если идёт драг или ожидается долгое нажатие – не начинаем свайп
-        if (dragData.isDragging || dragData.longPressTimer !== null) return;
+        if (dragData.isDragging) return;
+        // НЕ отменяем долгое нажатие здесь!
         startX = clientX;
         currentX = startX;
         isSwiping = false;
@@ -465,7 +457,6 @@ function initSwipe(element, wrapper, productId) {
         dragData.startTouchX = clientX;
         dragData.startTouchY = clientY;
         swipeActive = false;
-        // Кнопка скрыта по умолчанию
         if (deleteBtn) {
             deleteBtn.style.transition = 'opacity 0.1s ease';
             deleteBtn.style.opacity = '0';
@@ -479,9 +470,8 @@ function initSwipe(element, wrapper, productId) {
         if (!isSwiping && Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY)) {
             isSwiping = true;
             swipeActive = true;
-            // Если начался свайп – отменяем долгое нажатие
+            // Отменяем долгое нажатие, потому что начался свайп
             cancelLongPress();
-            // Показываем кнопку удаления с задержкой 0.1 сек
             if (deleteBtn) {
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '1';
@@ -518,7 +508,6 @@ function initSwipe(element, wrapper, productId) {
                     element.style.transition = '';
                 }, 250);
             }
-            // Скрываем кнопку после завершения свайпа
             if (deleteBtn) {
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '0';
@@ -529,7 +518,6 @@ function initSwipe(element, wrapper, productId) {
         }
         dragData.isScrolling = false;
         isPointerDown = false;
-        // На случай, если свайп не активировался, но кнопка могла остаться видимой – скрываем
         if (!isSwiping && deleteBtn) {
             deleteBtn.style.opacity = '0';
         }
@@ -563,7 +551,7 @@ function initSwipe(element, wrapper, productId) {
         if (dragData.isDragging) return;
         isPointerDown = true;
         onStart(e.clientX, e.clientY);
-        e.preventDefault(); // предотвращаем выделение
+        e.preventDefault();
     });
 
     document.addEventListener('mousemove', function(e) {
@@ -580,7 +568,6 @@ function initSwipe(element, wrapper, productId) {
         onEnd();
     });
 
-    // Кнопка удаления (клик по ней)
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -593,7 +580,6 @@ function initSwipe(element, wrapper, productId) {
                 setTimeout(() => {
                     element.style.transition = '';
                 }, 250);
-                // Скрываем кнопку
                 deleteBtn.style.opacity = '0';
             }
         });
@@ -805,7 +791,7 @@ function createProductWrapper(product) {
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'name';
-    nameSpan.textContent = product.name; // только название без иконки
+    nameSpan.textContent = product.name;
     div.appendChild(nameSpan);
 
     const urgentIcon = document.createElement('span');
@@ -867,7 +853,7 @@ function attachDragEvents(element, product) {
     element.addEventListener('touchstart', function(e) {
         if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
         if (swipeActive) return;
-        cancelLongPress();
+        cancelLongPress(); // сбрасываем старый таймер, если был
         const touch = e.touches[0];
         dragData.startTouchX = touch.clientX;
         dragData.startTouchY = touch.clientY;
