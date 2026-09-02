@@ -2,19 +2,18 @@
 // 1. НАСТРОЙКА FIREBASE
 // ================================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyBIw9xVGeDITBgllYPNL2KNqAikYlTArJo",
-  authDomain: "shopping-list-bcde0.firebaseapp.com",
-  projectId: "shopping-list-bcde0",
-  storageBucket: "shopping-list-bcde0.firebasestorage.app",
-  messagingSenderId: "665713375789",
-  appId: "1:665713375789:web:a2b919515b91d766f616a4"
+    apiKey: "AIzaSyBIw9xVGeDITBgllYPNL2KNqAikYlTArJo",
+    authDomain: "shopping-list-bcde0.firebaseapp.com",
+    projectId: "shopping-list-bcde0",
+    storageBucket: "shopping-list-bcde0.firebasestorage.app",
+    messagingSenderId: "665713375789",
+    appId: "1:665713375789:web:a2b919515b91d766f616a4"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // ================================================================
-// 2. ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (localStorage)
+// 2. ПРОФИЛЬ
 // ================================================================
 const AVATARS = [
     { id: 'mage', icon: '🧙‍♂️', label: 'Маг' },
@@ -39,9 +38,7 @@ function loadProfile() {
         try {
             currentProfile = JSON.parse(saved);
             return true;
-        } catch (e) {
-            return false;
-        }
+        } catch (e) { return false; }
     }
     return false;
 }
@@ -55,11 +52,7 @@ function saveProfile(name, avatarIcon) {
 
 function updateProfileDisplay() {
     const display = document.getElementById('profileDisplay');
-    if (currentProfile) {
-        display.textContent = currentProfile.avatar + ' ' + currentProfile.name;
-    } else {
-        display.textContent = '👤';
-    }
+    display.textContent = currentProfile ? currentProfile.avatar + ' ' + currentProfile.name : '👤';
 }
 
 function logout() {
@@ -67,15 +60,15 @@ function logout() {
     currentProfile = null;
     updateProfileDisplay();
     closeAllModals();
-    // Показываем модалку выбора
     showProfileModal();
 }
 
 // ================================================================
-// 3. МОДАЛЬНЫЕ ОКНА
+// 3. МОДАЛКИ
 // ================================================================
 const profileModal = document.getElementById('profileModal');
 const editProfileModal = document.getElementById('editProfileModal');
+const reminderModal = document.getElementById('reminderModal');
 const avatarGrid = document.getElementById('avatarGrid');
 const editAvatarGrid = document.getElementById('editAvatarGrid');
 const userNameInput = document.getElementById('userNameInput');
@@ -83,9 +76,16 @@ const editUserNameInput = document.getElementById('editUserNameInput');
 const saveProfileBtn = document.getElementById('saveProfileBtn');
 const saveEditProfileBtn = document.getElementById('saveEditProfileBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const reminderProductName = document.getElementById('reminderProductName');
+const reminderInterval = document.getElementById('reminderInterval');
+const saveReminderBtn = document.getElementById('saveReminderBtn');
+const removeReminderBtn = document.getElementById('removeReminderBtn');
+const closeReminderBtn = document.getElementById('closeReminderBtn');
 
 let selectedAvatar = AVATARS[0].icon;
 let editSelectedAvatar = AVATARS[0].icon;
+let currentReminderProductId = null;
+let currentReminderProductName = '';
 
 function renderAvatarGrid(grid, selectedIcon) {
     grid.innerHTML = '';
@@ -98,11 +98,8 @@ function renderAvatarGrid(grid, selectedIcon) {
         div.addEventListener('click', () => {
             grid.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
             div.classList.add('selected');
-            if (grid === avatarGrid) {
-                selectedAvatar = av.icon;
-            } else {
-                editSelectedAvatar = av.icon;
-            }
+            if (grid === avatarGrid) selectedAvatar = av.icon;
+            else editSelectedAvatar = av.icon;
         });
         grid.appendChild(div);
     });
@@ -125,68 +122,87 @@ function showEditProfileModal() {
     editUserNameInput.focus();
 }
 
+function showReminderModal(productId, productName) {
+    currentReminderProductId = productId;
+    currentReminderProductName = productName;
+    reminderProductName.textContent = productName;
+    db.collection('products').doc(productId).get().then(doc => {
+        const data = doc.data();
+        if (data && data.repeat && data.repeat.enabled) {
+            reminderInterval.value = data.repeat.interval || 7;
+        } else {
+            reminderInterval.value = 7;
+        }
+    });
+    reminderModal.classList.add('active');
+}
+
 function closeAllModals() {
     profileModal.classList.remove('active');
     editProfileModal.classList.remove('active');
+    reminderModal.classList.remove('active');
 }
 
-// Сохранение нового профиля (из модалки выбора)
 saveProfileBtn.addEventListener('click', () => {
     const name = userNameInput.value.trim();
-    if (!name) {
-        alert('Пожалуйста, введите ваше имя');
-        return;
-    }
+    if (!name) { alert('Введите имя'); return; }
     saveProfile(name, selectedAvatar);
 });
+userNameInput.addEventListener('keypress', e => { if (e.key === 'Enter') saveProfileBtn.click(); });
 
-userNameInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') saveProfileBtn.click();
-});
-
-// Сохранение изменений (из модалки редактирования)
 saveEditProfileBtn.addEventListener('click', () => {
     const name = editUserNameInput.value.trim();
-    if (!name) {
-        alert('Пожалуйста, введите ваше имя');
-        return;
-    }
+    if (!name) { alert('Введите имя'); return; }
     saveProfile(name, editSelectedAvatar);
 });
+editUserNameInput.addEventListener('keypress', e => { if (e.key === 'Enter') saveEditProfileBtn.click(); });
 
-editUserNameInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') saveEditProfileBtn.click();
-});
-
-// Выход
 logoutBtn.addEventListener('click', () => {
-    if (confirm('Вы уверены, что хотите выйти?')) {
-        logout();
-    }
+    if (confirm('Выйти?')) logout();
 });
 
-// Клик по аватару в шапке открывает редактирование
+saveReminderBtn.addEventListener('click', async () => {
+    if (!currentReminderProductId) return;
+    const interval = parseInt(reminderInterval.value);
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + interval);
+    await db.collection('products').doc(currentReminderProductId).update({
+        repeat: {
+            enabled: true,
+            interval: interval,
+            nextDate: firebase.firestore.Timestamp.fromDate(nextDate)
+        }
+    });
+    closeAllModals();
+    refreshProducts();
+});
+
+removeReminderBtn.addEventListener('click', async () => {
+    if (!currentReminderProductId) return;
+    if (!confirm('Отключить напоминание для этого продукта?')) return;
+    await db.collection('products').doc(currentReminderProductId).update({
+        repeat: { enabled: false, interval: 0, nextDate: null }
+    });
+    closeAllModals();
+    refreshProducts();
+});
+
+closeReminderBtn.addEventListener('click', closeAllModals);
+
 document.getElementById('profileDisplay').addEventListener('click', () => {
-    if (currentProfile) {
-        showEditProfileModal();
-    }
+    if (currentProfile) showEditProfileModal();
 });
 
-// Если профиль не сохранён, показываем модалку выбора
-if (!loadProfile()) {
-    showProfileModal();
-} else {
-    updateProfileDisplay();
-}
+if (!loadProfile()) showProfileModal();
+else updateProfileDisplay();
 
 // ================================================================
-// 4. ТЕМА (по умолчанию тёмная)
+// 4. ТЕМА
 // ================================================================
 const themeToggle = document.getElementById('themeToggle');
 const storedTheme = localStorage.getItem('theme') || 'dark';
 document.documentElement.setAttribute('data-theme', storedTheme);
 themeToggle.textContent = storedTheme === 'dark' ? '☀️' : '🌙';
-
 themeToggle.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
     const newTheme = current === 'dark' ? 'light' : 'dark';
@@ -196,7 +212,7 @@ themeToggle.addEventListener('click', () => {
 });
 
 // ================================================================
-// 5. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// 5. ВСПОМОГАТЕЛЬНЫЕ
 // ================================================================
 function isFromPreviousDay(timestamp) {
     if (!timestamp) return false;
@@ -212,7 +228,7 @@ function normalizeCategory(category) {
 }
 
 // ================================================================
-// 6. DOM-ЭЛЕМЕНТЫ
+// 6. DOM
 // ================================================================
 const productList = document.getElementById('productList');
 const productInput = document.getElementById('productInput');
@@ -220,12 +236,10 @@ const addButton = document.getElementById('addButton');
 const archiveToggle = document.getElementById('archiveToggle');
 const archiveItems = document.getElementById('archiveItems');
 const archiveCount = document.getElementById('archiveCount');
-const dropZones = document.getElementById('dropZones');
-const dropZonesList = document.querySelectorAll('.drop-zone');
+const dragIndicator = document.getElementById('dragIndicator');
 
 const catBtns = document.querySelectorAll('.cat-btn');
 let selectedCategory = 'food';
-
 catBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         catBtns.forEach(b => b.classList.remove('active'));
@@ -237,20 +251,24 @@ catBtns.forEach(btn => {
 // ================================================================
 // 7. DRAG-AND-DROP
 // ================================================================
+const LONG_PRESS_DELAY = 250;
 let dragData = {
     isDragging: false,
     element: null,
+    wrapper: null,
     clone: null,
-    offsetX: 0,
-    offsetY: 0,
+    offsetX: 0, offsetY: 0,
     productId: null,
     currentCategory: null,
+    startIndex: -1, targetIndex: -1,
     longPressTimer: null,
     isLongPress: false,
-    startTouchX: 0,
-    startTouchY: 0,
+    startTouchX: 0, startTouchY: 0,
     isScrolling: false
 };
+
+// Глобальный флаг для предотвращения конфликта свайпа и долгого нажатия
+let swipeActive = false;
 
 function createDragClone(element) {
     const clone = document.createElement('div');
@@ -268,26 +286,18 @@ function createDragClone(element) {
     return clone;
 }
 
-function showDropZones() {
-    dropZones.classList.remove('hidden');
-}
-
-function hideDropZones() {
-    dropZones.classList.add('hidden');
-    dropZonesList.forEach(z => z.classList.remove('drag-over'));
-}
-
-function updateDragClone(clientX, clientY) {
-    if (dragData.clone) {
-        dragData.clone.style.left = (clientX - dragData.offsetX) + 'px';
-        dragData.clone.style.top = (clientY - dragData.offsetY) + 'px';
+function showDragIndicator(index) {
+    dragIndicator.classList.add('active');
+    const items = productList.querySelectorAll('.product-wrapper');
+    if (index < items.length) {
+        items[index].before(dragIndicator);
+    } else {
+        productList.appendChild(dragIndicator);
     }
-    dropZonesList.forEach(zone => {
-        const rect = zone.getBoundingClientRect();
-        const isOver = clientX >= rect.left && clientX <= rect.right &&
-                       clientY >= rect.top && clientY <= rect.bottom;
-        zone.classList.toggle('drag-over', isOver);
-    });
+}
+
+function hideDragIndicator() {
+    dragIndicator.classList.remove('active');
 }
 
 function startDrag(e, productElement) {
@@ -297,10 +307,17 @@ function startDrag(e, productElement) {
 
     dragData.isDragging = true;
     dragData.element = productElement;
+    dragData.wrapper = productElement.closest('.product-wrapper');
     dragData.productId = productElement.dataset.id;
     dragData.currentCategory = normalizeCategory(productElement.dataset.category);
     dragData.offsetX = touch.clientX - rect.left;
     dragData.offsetY = touch.clientY - rect.top;
+
+    // Убираем любые изменения opacity кнопки при драге
+    // Кнопка всегда скрыта по умолчанию, и только свайп её показывает
+
+    const items = productList.querySelectorAll('.product-item');
+    dragData.startIndex = Array.from(items).indexOf(productElement);
 
     if (navigator.vibrate) navigator.vibrate(30);
 
@@ -309,8 +326,6 @@ function startDrag(e, productElement) {
 
     document.body.style.userSelect = 'none';
     document.body.style.webkitUserSelect = 'none';
-
-    showDropZones();
 
     if (e.type === 'touchstart') {
         document.addEventListener('touchmove', onDragMove, { passive: false });
@@ -327,24 +342,69 @@ function onDragMove(e) {
     updateDragClone(touch.clientX, touch.clientY);
 }
 
+function updateDragClone(clientX, clientY) {
+    if (dragData.clone) {
+        dragData.clone.style.left = (clientX - dragData.offsetX) + 'px';
+        dragData.clone.style.top = (clientY - dragData.offsetY) + 'px';
+    }
+    const items = productList.querySelectorAll('.product-item');
+    let targetIdx = items.length;
+    for (let i = 0; i < items.length; i++) {
+        const rect = items[i].getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (clientY < midY) {
+            targetIdx = i;
+            break;
+        }
+    }
+    if (targetIdx !== dragData.targetIndex) {
+        dragData.targetIndex = targetIdx;
+        showDragIndicator(targetIdx);
+    }
+    const catBtns = document.querySelectorAll('.cat-btn');
+    catBtns.forEach(btn => {
+        const rect = btn.getBoundingClientRect();
+        const isOver = clientX >= rect.left && clientX <= rect.right &&
+                       clientY >= rect.top && clientY <= rect.bottom;
+        btn.classList.toggle('drag-over-category', isOver);
+    });
+}
+
 function onDragEnd(e) {
     const touch = e.changedTouches ? e.changedTouches[0] : e;
     let targetCategory = null;
-    dropZonesList.forEach(zone => {
-        if (zone.classList.contains('drag-over')) {
-            targetCategory = zone.dataset.category;
+    const catBtns = document.querySelectorAll('.cat-btn');
+    catBtns.forEach(btn => {
+        if (btn.classList.contains('drag-over-category')) {
+            targetCategory = btn.dataset.category;
         }
+        btn.classList.remove('drag-over-category');
     });
 
     if (targetCategory && targetCategory !== dragData.currentCategory) {
-        const productId = dragData.productId;
-        db.collection('products').doc(productId).update({ category: targetCategory })
+        db.collection('products').doc(dragData.productId).update({ category: targetCategory })
             .catch(err => console.error('Ошибка обновления категории:', err));
+    } else if (dragData.targetIndex !== -1 && dragData.targetIndex !== dragData.startIndex) {
+        const items = productList.querySelectorAll('.product-item');
+        const productIds = [];
+        items.forEach(item => productIds.push(item.dataset.id));
+        const movedId = dragData.productId;
+        const startIdx = dragData.startIndex;
+        const targetIdx = dragData.targetIndex;
+        let newOrder = productIds.filter(id => id !== movedId);
+        newOrder.splice(targetIdx, 0, movedId);
+        const batch = db.batch();
+        newOrder.forEach((id, index) => {
+            const ref = db.collection('products').doc(id);
+            batch.update(ref, { order: index });
+        });
+        batch.commit().catch(err => console.error('Ошибка обновления порядка:', err));
     }
+
+    // Никаких изменений opacity кнопки при завершении драга
 
     document.body.style.userSelect = '';
     document.body.style.webkitUserSelect = '';
-
     if (dragData.clone) {
         dragData.clone.remove();
         dragData.clone = null;
@@ -353,37 +413,19 @@ function onDragEnd(e) {
         dragData.element.style.opacity = '1';
         dragData.element = null;
     }
-    hideDropZones();
+    hideDragIndicator();
     dragData.isDragging = false;
+    dragData.isLongPress = false;
     dragData.productId = null;
     dragData.currentCategory = null;
-    dragData.isScrolling = false;
+    dragData.startIndex = -1;
+    dragData.targetIndex = -1;
+    dragData.wrapper = null;
 
     document.removeEventListener('touchmove', onDragMove);
     document.removeEventListener('touchend', onDragEnd);
     document.removeEventListener('mousemove', onDragMove);
     document.removeEventListener('mouseup', onDragEnd);
-}
-
-function handleLongPress(e, productElement) {
-    if (e.type === 'touchstart') {
-        const touch = e.touches[0];
-        dragData.startTouchX = touch.clientX;
-        dragData.startTouchY = touch.clientY;
-        dragData.isScrolling = false;
-
-        dragData.longPressTimer = setTimeout(() => {
-            if (!dragData.isScrolling) {
-                dragData.isLongPress = true;
-                startDrag(e, productElement);
-            }
-        }, 500);
-    } else if (e.type === 'mousedown') {
-        dragData.longPressTimer = setTimeout(() => {
-            dragData.isLongPress = true;
-            startDrag(e, productElement);
-        }, 500);
-    }
 }
 
 function cancelLongPress() {
@@ -394,60 +436,175 @@ function cancelLongPress() {
     dragData.isLongPress = false;
 }
 
-function attachDragEvents(element, product) {
-    if (product.bought) return;
+// ================================================================
+// 8. SWIPE-TO-DELETE (обновлённая логика opacity)
+// ================================================================
+const SWIPE_THRESHOLD = 60;
 
+function initSwipe(element, wrapper, productId) {
+    if (element.dataset.swipeInitialized) return;
+    element.dataset.swipeInitialized = 'true';
+
+    let startX = 0;
+    let currentX = 0;
+    let isSwiping = false;
+    let isScrolling = false;
+    let isPointerDown = false;
+
+    // Получаем кнопку удаления для этого элемента
+    const deleteBtn = wrapper.querySelector('.delete-btn-swipe');
+
+    // Общие функции
+    function onStart(clientX, clientY) {
+        // Если идёт драг или ожидается долгое нажатие – не начинаем свайп
+        if (dragData.isDragging || dragData.longPressTimer !== null) return;
+        startX = clientX;
+        currentX = startX;
+        isSwiping = false;
+        isScrolling = false;
+        dragData.startTouchX = clientX;
+        dragData.startTouchY = clientY;
+        swipeActive = false;
+        // Кнопка скрыта по умолчанию
+        if (deleteBtn) {
+            deleteBtn.style.transition = 'opacity 0.1s ease';
+            deleteBtn.style.opacity = '0';
+        }
+    }
+
+    function onMove(clientX, clientY) {
+        if (dragData.isDragging || dragData.isLongPress) return;
+        const deltaX = clientX - startX;
+        const deltaY = clientY - dragData.startTouchY;
+        if (!isSwiping && Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY)) {
+            isSwiping = true;
+            swipeActive = true;
+            // Если начался свайп – отменяем долгое нажатие
+            cancelLongPress();
+            // Показываем кнопку удаления с задержкой 0.1 сек
+            if (deleteBtn) {
+                deleteBtn.style.transition = 'opacity 0.1s ease';
+                deleteBtn.style.opacity = '1';
+            }
+        }
+        if (isSwiping) {
+            const offset = Math.min(0, deltaX);
+            currentX = deltaX;
+            element.style.transform = 'translateX(' + offset + 'px)';
+        } else {
+            if (Math.abs(deltaY) > 10) {
+                isScrolling = true;
+            }
+        }
+    }
+
+    function onEnd() {
+        if (isSwiping) {
+            if (currentX < -SWIPE_THRESHOLD) {
+                const name = element.querySelector('.name')?.textContent || 'продукт';
+                if (confirm('Удалить "' + name + '"?')) {
+                    deleteProduct(productId, name);
+                } else {
+                    element.style.transition = 'transform 0.2s ease';
+                    element.style.transform = 'translateX(0)';
+                    setTimeout(() => {
+                        element.style.transition = '';
+                    }, 250);
+                }
+            } else {
+                element.style.transition = 'transform 0.2s ease';
+                element.style.transform = 'translateX(0)';
+                setTimeout(() => {
+                    element.style.transition = '';
+                }, 250);
+            }
+            // Скрываем кнопку после завершения свайпа
+            if (deleteBtn) {
+                deleteBtn.style.transition = 'opacity 0.1s ease';
+                deleteBtn.style.opacity = '0';
+            }
+            isSwiping = false;
+            currentX = 0;
+            swipeActive = false;
+        }
+        dragData.isScrolling = false;
+        isPointerDown = false;
+        // На случай, если свайп не активировался, но кнопка могла остаться видимой – скрываем
+        if (!isSwiping && deleteBtn) {
+            deleteBtn.style.opacity = '0';
+        }
+    }
+
+    // Touch события
     element.addEventListener('touchstart', function(e) {
-        if (e.target.closest('.delete-btn')) return;
-        handleLongPress(e, element);
+        if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
+        if (dragData.isDragging) return;
+        const touch = e.touches[0];
+        onStart(touch.clientX, touch.clientY);
     }, { passive: true });
 
     element.addEventListener('touchmove', function(e) {
-        if (dragData.startTouchX && dragData.startTouchY) {
-            const touch = e.touches[0];
-            const dx = touch.clientX - dragData.startTouchX;
-            const dy = touch.clientY - dragData.startTouchY;
-            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-                dragData.isScrolling = true;
-                cancelLongPress();
-            }
-        }
-    }, { passive: true });
-
-    element.addEventListener('touchend', function(e) {
-        if (dragData.isLongPress) {
+        if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
+        if (dragData.isDragging) return;
+        const touch = e.touches[0];
+        onMove(touch.clientX, touch.clientY);
+        if (isSwiping) {
             e.preventDefault();
-            e.stopPropagation();
         }
-        cancelLongPress();
-        dragData.isScrolling = false;
     }, { passive: false });
 
+    element.addEventListener('touchend', function(e) {
+        onEnd();
+    }, { passive: true });
+
+    // Mouse события
     element.addEventListener('mousedown', function(e) {
-        if (e.target.closest('.delete-btn')) return;
-        handleLongPress(e, element);
+        if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
+        if (dragData.isDragging) return;
+        isPointerDown = true;
+        onStart(e.clientX, e.clientY);
+        e.preventDefault(); // предотвращаем выделение
     });
 
-    element.addEventListener('mousemove', function(e) {
-        cancelLongPress();
-    });
-
-    element.addEventListener('mouseup', function(e) {
-        if (dragData.isLongPress) {
+    document.addEventListener('mousemove', function(e) {
+        if (!isPointerDown) return;
+        if (dragData.isDragging) return;
+        onMove(e.clientX, e.clientY);
+        if (isSwiping) {
             e.preventDefault();
-            e.stopPropagation();
         }
-        cancelLongPress();
     });
+
+    document.addEventListener('mouseup', function(e) {
+        if (!isPointerDown) return;
+        onEnd();
+    });
+
+    // Кнопка удаления (клик по ней)
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const name = element.querySelector('.name')?.textContent || 'продукт';
+            if (confirm('Удалить "' + name + '"?')) {
+                deleteProduct(productId, name);
+            } else {
+                element.style.transition = 'transform 0.2s ease';
+                element.style.transform = 'translateX(0)';
+                setTimeout(() => {
+                    element.style.transition = '';
+                }, 250);
+                // Скрываем кнопку
+                deleteBtn.style.opacity = '0';
+            }
+        });
+    }
 }
 
 // ================================================================
-// 8. ОСНОВНАЯ ЛОГИКА
+// 9. ОСНОВНАЯ ЛОГИКА
 // ================================================================
 addButton.addEventListener('click', addProduct);
-productInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') addProduct();
-});
+productInput.addEventListener('keypress', e => { if (e.key === 'Enter') addProduct(); });
 
 async function addProduct() {
     if (!currentProfile) {
@@ -462,6 +619,9 @@ async function addProduct() {
             name: name,
             category: selectedCategory,
             bought: false,
+            order: Date.now(),
+            urgent: false,
+            repeat: { enabled: false, interval: 0, nextDate: null },
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             boughtAt: null,
             author: {
@@ -488,12 +648,59 @@ async function toggleBought(id, currentBought) {
     }
 }
 
+async function toggleUrgent(id, currentUrgent) {
+    try {
+        await db.collection('products').doc(id).update({
+            urgent: !currentUrgent
+        });
+    } catch (error) {
+        console.error('Ошибка обновления срочности:', error);
+    }
+}
+
 async function deleteProduct(id, name) {
-    if (!confirm(`Удалить "${name}"?`)) return;
     try {
         await db.collection('products').doc(id).delete();
     } catch (error) {
         console.error('Ошибка удаления:', error);
+    }
+}
+
+async function checkReminders() {
+    const now = new Date();
+    const snapshot = await db.collection('products')
+        .where('repeat.enabled', '==', true)
+        .get();
+    const batch = db.batch();
+    let changes = false;
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.repeat && data.repeat.nextDate) {
+            const next = data.repeat.nextDate.toDate();
+            if (next <= now) {
+                const newDoc = db.collection('products').doc();
+                batch.set(newDoc, {
+                    name: data.name,
+                    category: data.category || 'other',
+                    bought: false,
+                    order: Date.now(),
+                    urgent: data.urgent || false,
+                    repeat: { enabled: false, interval: 0, nextDate: null },
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    boughtAt: null,
+                    author: data.author || { name: 'Неизвестный', avatar: '👤' }
+                });
+                const nextDate = new Date();
+                nextDate.setDate(nextDate.getDate() + data.repeat.interval);
+                batch.update(doc.ref, {
+                    'repeat.nextDate': firebase.firestore.Timestamp.fromDate(nextDate)
+                });
+                changes = true;
+            }
+        }
+    });
+    if (changes) {
+        await batch.commit();
     }
 }
 
@@ -506,7 +713,9 @@ async function archiveOldProducts(products) {
                     category: product.category || 'other',
                     boughtAt: product.boughtAt,
                     createdAt: product.createdAt,
-                    author: product.author || null
+                    author: product.author || null,
+                    urgent: product.urgent || false,
+                    repeat: product.repeat || { enabled: false, interval: 0, nextDate: null }
                 });
                 await db.collection('products').doc(product.id).delete();
             } catch (error) {
@@ -517,14 +726,19 @@ async function archiveOldProducts(products) {
 }
 
 // ================================================================
-// 9. ОТРИСОВКА
+// 10. ОТРИСОВКА
 // ================================================================
 function renderProducts(products) {
     products.forEach(p => {
         p.category = normalizeCategory(p.category);
-        if (!p.author) {
-            p.author = { name: 'Неизвестный', avatar: '👤' };
-        }
+        if (!p.author) p.author = { name: 'Неизвестный', avatar: '👤' };
+        if (p.urgent === undefined) p.urgent = false;
+        if (!p.repeat) p.repeat = { enabled: false, interval: 0, nextDate: null };
+    });
+    products.sort((a, b) => {
+        if (a.bought !== b.bought) return a.bought ? 1 : -1;
+        if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
+        return (a.order || 0) - (b.order || 0);
     });
 
     productList.innerHTML = '';
@@ -542,54 +756,47 @@ function renderProducts(products) {
         return { food, other };
     };
 
-    // Активные
+    const renderGroup = (items, label, isBought = false) => {
+        if (!items.length) return;
+        const labelEl = document.createElement('div');
+        labelEl.className = 'category-label' + (isBought ? ' bought-label' : '');
+        labelEl.textContent = label;
+        productList.appendChild(labelEl);
+        items.forEach(p => productList.appendChild(createProductWrapper(p)));
+    };
+
     const activeGroups = groupByCategory(active);
-    if (activeGroups.food.length) {
-        const label = document.createElement('div');
-        label.className = 'category-label';
-        label.textContent = '🍔 Еда';
-        productList.appendChild(label);
-        activeGroups.food.forEach(p => productList.appendChild(createProductElement(p)));
-    }
-    if (activeGroups.other.length) {
-        const label = document.createElement('div');
-        label.className = 'category-label';
-        label.textContent = '🛒 Остальное';
-        productList.appendChild(label);
-        activeGroups.other.forEach(p => productList.appendChild(createProductElement(p)));
-    }
+    renderGroup(activeGroups.food, '🍔 Еда');
+    renderGroup(activeGroups.other, '🛒 Остальное');
 
     if (bought.length) {
         const divider = document.createElement('hr');
         divider.className = 'divider';
         productList.appendChild(divider);
-    }
-
-    // Купленные
-    const boughtGroups = groupByCategory(bought);
-    if (boughtGroups.food.length) {
-        const label = document.createElement('div');
-        label.className = 'category-label bought-label';
-        label.textContent = '🍔 Еда (куплено)';
-        productList.appendChild(label);
-        boughtGroups.food.forEach(p => productList.appendChild(createProductElement(p)));
-    }
-    if (boughtGroups.other.length) {
-        const label = document.createElement('div');
-        label.className = 'category-label bought-label';
-        label.textContent = '🛒 Остальное (куплено)';
-        productList.appendChild(label);
-        boughtGroups.other.forEach(p => productList.appendChild(createProductElement(p)));
+        const boughtGroups = groupByCategory(bought);
+        renderGroup(boughtGroups.food, '🍔 Еда (куплено)', true);
+        renderGroup(boughtGroups.other, '🛒 Остальное (куплено)', true);
     }
 }
 
-function createProductElement(product) {
+function createProductWrapper(product) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'product-wrapper';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn-swipe';
+    deleteBtn.textContent = 'Удалить';
+    wrapper.appendChild(deleteBtn);
+
     const div = document.createElement('div');
     div.className = 'product-item' + (product.bought ? ' bought' : '');
+    if (product.urgent && !product.bought) {
+        div.classList.add('urgent-highlight');
+    }
     div.dataset.id = product.id;
     div.dataset.category = product.category;
+    div.style.transform = 'translateX(0)';
 
-    // Аватар автора
     const avatarSpan = document.createElement('span');
     avatarSpan.className = 'avatar-mini';
     avatarSpan.textContent = product.author.avatar || '👤';
@@ -598,44 +805,123 @@ function createProductElement(product) {
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'name';
-    const catIcon = product.category === 'food' ? '🍔 ' : '🛒 ';
-    nameSpan.textContent = catIcon + product.name;
+    nameSpan.textContent = product.name; // только название без иконки
     div.appendChild(nameSpan);
 
-    const right = document.createElement('div');
-    right.style.display = 'flex';
-    right.style.alignItems = 'center';
-    right.style.gap = '8px';
+    const urgentIcon = document.createElement('span');
+    urgentIcon.className = 'urgent-icon';
+    urgentIcon.textContent = '⚡';
+    if (product.bought) {
+        urgentIcon.style.opacity = '0.2';
+        urgentIcon.style.cursor = 'default';
+        urgentIcon.title = 'Купленный продукт';
+    } else {
+        urgentIcon.style.opacity = product.urgent ? '1' : '0.3';
+        urgentIcon.title = product.urgent ? 'Срочно (нажмите, чтобы отменить)' : 'Сделать срочным';
+        urgentIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleUrgent(product.id, product.urgent);
+        });
+    }
+    div.appendChild(urgentIcon);
+
+    if (!product.bought && product.repeat && product.repeat.enabled) {
+        const remIcon = document.createElement('span');
+        remIcon.className = 'reminder-icon';
+        remIcon.textContent = '🔄';
+        remIcon.title = 'Напоминание включено (нажмите для настройки)';
+        remIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showReminderModal(product.id, product.name);
+        });
+        div.appendChild(remIcon);
+    }
 
     if (product.bought) {
         const check = document.createElement('span');
         check.className = 'check';
         check.textContent = '✔';
-        right.appendChild(check);
+        div.appendChild(check);
     }
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'delete-btn';
-    delBtn.textContent = '✕';
-    delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteProduct(product.id, product.name);
-        delBtn.blur();
-    });
-    right.appendChild(delBtn);
-    div.appendChild(right);
+    wrapper.appendChild(div);
 
     div.addEventListener('click', (e) => {
         if (dragData.isLongPress || dragData.isDragging) return;
-        if (e.target.closest('.delete-btn')) return;
+        if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
         toggleBought(product.id, product.bought);
     });
 
     if (!product.bought) {
         attachDragEvents(div, product);
+        initSwipe(div, wrapper, product.id);
+    } else {
+        deleteBtn.style.display = 'none';
     }
 
-    return div;
+    return wrapper;
+}
+
+function attachDragEvents(element, product) {
+    if (product.bought) return;
+    element.addEventListener('touchstart', function(e) {
+        if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
+        if (swipeActive) return;
+        cancelLongPress();
+        const touch = e.touches[0];
+        dragData.startTouchX = touch.clientX;
+        dragData.startTouchY = touch.clientY;
+        dragData.isScrolling = false;
+        dragData.longPressTimer = setTimeout(() => {
+            const style = element.style.transform;
+            if (!dragData.isScrolling && (!style || style === 'translateX(0px)' || style === '')) {
+                dragData.isLongPress = true;
+                startDrag(e, element);
+            }
+        }, LONG_PRESS_DELAY);
+    }, { passive: true });
+
+    element.addEventListener('touchmove', function(e) {
+        if (dragData.startTouchX && dragData.startTouchY) {
+            const touch = e.touches[0];
+            const dx = touch.clientX - dragData.startTouchX;
+            const dy = touch.clientY - dragData.startTouchY;
+            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                dragData.isScrolling = true;
+                cancelLongPress();
+            }
+        }
+    }, { passive: true });
+
+    element.addEventListener('touchend', function(e) {
+        if (dragData.isLongPress) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        cancelLongPress();
+        dragData.isScrolling = false;
+    }, { passive: false });
+
+    element.addEventListener('mousedown', function(e) {
+        if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
+        if (swipeActive) return;
+        dragData.longPressTimer = setTimeout(() => {
+            const style = element.style.transform;
+            if (!style || style === 'translateX(0px)' || style === '') {
+                dragData.isLongPress = true;
+                startDrag(e, element);
+            }
+        }, LONG_PRESS_DELAY);
+    });
+
+    element.addEventListener('mousemove', cancelLongPress);
+    element.addEventListener('mouseup', function(e) {
+        if (dragData.isLongPress) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        cancelLongPress();
+    });
 }
 
 function renderArchive(archivedItems) {
@@ -650,49 +936,95 @@ function renderArchive(archivedItems) {
         div.className = 'archive-item';
         const catIcon = normalizeCategory(item.category) === 'food' ? '🍔 ' : '🛒 ';
         const authorIcon = (item.author && item.author.avatar) ? item.author.avatar : '👤';
-        div.textContent = authorIcon + ' ' + catIcon + item.name;
+        const urgentIcon = item.urgent ? '⚡ ' : '';
+        div.textContent = authorIcon + ' ' + urgentIcon + catIcon + item.name;
+        const reminderBtn = document.createElement('button');
+        reminderBtn.className = 'reminder-setup-btn';
+        reminderBtn.textContent = '⏰';
+        reminderBtn.title = 'Настроить напоминание для этого продукта';
+        reminderBtn.addEventListener('click', () => {
+            showReminderModalForArchived(item);
+        });
+        div.appendChild(reminderBtn);
         archiveItems.appendChild(div);
     });
 }
 
-// ================================================================
-// 10. ПОДПИСКИ НА ИЗМЕНЕНИЯ
-// ================================================================
-db.collection('products')
-    .orderBy('bought', 'asc')
-    .onSnapshot((snapshot) => {
-        const products = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            products.push({ id: doc.id, ...data });
+async function showReminderModalForArchived(item) {
+    const snapshot = await db.collection('products')
+        .where('name', '==', item.name)
+        .get();
+    if (!snapshot.empty) {
+        const existing = snapshot.docs[0];
+        showReminderModal(existing.id, existing.data().name);
+    } else {
+        if (!confirm(`Добавить "${item.name}" в список и настроить напоминание?`)) return;
+        const newDoc = db.collection('products').doc();
+        const interval = 7;
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + interval);
+        await newDoc.set({
+            name: item.name,
+            category: item.category || 'other',
+            bought: false,
+            order: Date.now(),
+            urgent: item.urgent || false,
+            repeat: {
+                enabled: true,
+                interval: interval,
+                nextDate: firebase.firestore.Timestamp.fromDate(nextDate)
+            },
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            boughtAt: null,
+            author: item.author || { name: 'Неизвестный', avatar: '👤' }
         });
-        products.sort((a, b) => {
-            if (a.bought !== b.bought) return a.bought ? 1 : -1;
-            const timeA = a.createdAt?.toMillis?.() || 0;
-            const timeB = b.createdAt?.toMillis?.() || 0;
-            return timeB - timeA;
-        });
-        renderProducts(products);
-        archiveOldProducts(products);
-    }, (error) => {
-        console.error('Ошибка подписки на продукты:', error);
-    });
-
-db.collection('archive')
-    .orderBy('boughtAt', 'desc')
-    .onSnapshot((snapshot) => {
-        const archived = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            archived.push({ id: doc.id, ...data });
-        });
-        renderArchive(archived);
-    }, (error) => {
-        console.error('Ошибка подписки на архив:', error);
-    });
+        closeAllModals();
+        refreshProducts();
+    }
+}
 
 // ================================================================
-// 11. АРХИВ – СВОРАЧИВАНИЕ
+// 11. ПОДПИСКИ
+// ================================================================
+let unsubscribeProducts = null;
+let unsubscribeArchive = null;
+
+function refreshProducts() {
+    if (unsubscribeProducts) unsubscribeProducts();
+    if (unsubscribeArchive) unsubscribeArchive();
+
+    unsubscribeProducts = db.collection('products')
+        .onSnapshot(async (snapshot) => {
+            const products = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                products.push({ id: doc.id, ...data });
+            });
+            renderProducts(products);
+            await checkReminders();
+            archiveOldProducts(products);
+        }, (error) => {
+            console.error('Ошибка подписки на продукты:', error);
+        });
+
+    unsubscribeArchive = db.collection('archive')
+        .orderBy('boughtAt', 'desc')
+        .onSnapshot((snapshot) => {
+            const archived = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                archived.push({ id: doc.id, ...data });
+            });
+            renderArchive(archived);
+        }, (error) => {
+            console.error('Ошибка подписки на архив:', error);
+        });
+}
+
+refreshProducts();
+
+// ================================================================
+// 12. АРХИВ – СВОРАЧИВАНИЕ
 // ================================================================
 let archiveVisible = false;
 archiveToggle.addEventListener('click', () => {
@@ -704,6 +1036,6 @@ archiveToggle.addEventListener('click', () => {
 });
 
 // ================================================================
-// 12. СТАРТ
+// 13. СТАРТ
 // ================================================================
 productInput.focus();
