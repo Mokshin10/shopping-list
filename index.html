@@ -10,11 +10,48 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+    <!-- Модальное окно выбора профиля (при первом запуске) -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <h2>👋 Выберите профиль</h2>
+            <p>Введите ваше имя и выберите аватар</p>
+            <div class="modal-body">
+                <div class="avatar-grid" id="avatarGrid"></div>
+                <div class="name-input-wrap">
+                    <input type="text" id="userNameInput" placeholder="Ваше имя..." maxlength="20" />
+                </div>
+                <button id="saveProfileBtn" class="save-btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно редактирования профиля (клик по аватару) -->
+    <div id="editProfileModal" class="modal">
+        <div class="modal-content">
+            <h2>✏️ Редактировать профиль</h2>
+            <p>Измените имя или аватар</p>
+            <div class="modal-body">
+                <div class="avatar-grid" id="editAvatarGrid"></div>
+                <div class="name-input-wrap">
+                    <input type="text" id="editUserNameInput" placeholder="Ваше имя..." maxlength="20" />
+                </div>
+                <div class="modal-actions">
+                    <button id="saveEditProfileBtn" class="save-btn">Сохранить</button>
+                    <button id="logoutBtn" class="logout-btn">🚪 Выйти</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основное приложение -->
     <div class="app" id="app">
         <div class="header">
             <span class="header-icon">🛒</span>
             <h1>Список покупок</h1>
-            <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
+            <div class="header-right">
+                <span id="profileDisplay" class="profile-display" title="Нажмите для редактирования"></span>
+                <button class="theme-toggle" id="themeToggle" title="Переключить тему">☀️</button>
+            </div>
         </div>
 
         <div id="dropZones" class="drop-zones hidden">
