@@ -179,7 +179,6 @@ body {
     transition: background 0.2s, opacity 0.2s, transform 0.1s;
     cursor: pointer;
     box-shadow: var(--shadow-item);
-    touch-action: none;
     color: var(--text-primary);
 }
 
