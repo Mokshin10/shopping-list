@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <!-- Модальное окно выбора профиля (при первом запуске) -->
     <div id="profileModal" class="modal">
         <div class="modal-content">
             <h2>👋 Выберите профиль</h2>
@@ -25,7 +24,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно редактирования профиля (клик по аватару) -->
     <div id="editProfileModal" class="modal">
         <div class="modal-content">
             <h2>✏️ Редактировать профиль</h2>
@@ -43,7 +41,32 @@
         </div>
     </div>
 
-    <!-- Основное приложение -->
+    <div id="reminderModal" class="modal">
+        <div class="modal-content">
+            <h2>⏰ Напоминание</h2>
+            <p>Настройте автоматическое добавление продукта</p>
+            <div class="modal-body">
+                <div class="reminder-product-name" id="reminderProductName"></div>
+                <div class="reminder-interval-wrap">
+                    <label>Повторять каждые:</label>
+                    <select id="reminderInterval">
+                        <option value="1">1 день</option>
+                        <option value="2">2 дня</option>
+                        <option value="3">3 дня</option>
+                        <option value="7" selected>7 дней (неделя)</option>
+                        <option value="14">14 дней (2 недели)</option>
+                        <option value="30">30 дней (месяц)</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button id="saveReminderBtn" class="save-btn">Сохранить</button>
+                    <button id="removeReminderBtn" class="logout-btn">Отключить</button>
+                    <button id="closeReminderBtn" class="cancel-btn">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="app" id="app">
         <div class="header">
             <span class="header-icon">🛒</span>
@@ -52,11 +75,6 @@
                 <span id="profileDisplay" class="profile-display" title="Нажмите для редактирования"></span>
                 <button class="theme-toggle" id="themeToggle" title="Переключить тему">☀️</button>
             </div>
-        </div>
-
-        <div id="dropZones" class="drop-zones hidden">
-            <div class="drop-zone" data-category="food">🍔 Еда</div>
-            <div class="drop-zone" data-category="other">🛒 Остальное</div>
         </div>
 
         <div class="product-list" id="productList"></div>
@@ -83,6 +101,8 @@
             <button id="addButton">Добавить</button>
         </div>
     </div>
+
+    <div id="dragIndicator" class="drag-indicator"></div>
 
     <script src="app.js"></script>
 </body>
