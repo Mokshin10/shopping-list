@@ -14,12 +14,178 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // ================================================================
-// 2. ТЕМА
+// 2. ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ (localStorage)
+// ================================================================
+const AVATARS = [
+    { id: 'mage', icon: '🧙‍♂️', label: 'Маг' },
+    { id: 'warrior', icon: '⚔️', label: 'Воин' },
+    { id: 'kratos', icon: '🦾', label: 'Кратос' },
+    { id: 'elf', icon: '🧝', label: 'Эльф' },
+    { id: 'druid', icon: '🌿', label: 'Друид' },
+    { id: 'terminator', icon: '🤖', label: 'Терминатор' },
+    { id: 'superhero', icon: '🦸', label: 'Супергерой' },
+    { id: 'dragon', icon: '🐉', label: 'Дракон' },
+    { id: 'alien', icon: '👾', label: 'Пришелец' },
+    { id: 'astronaut', icon: '🧑‍🚀', label: 'Космонавт' },
+    { id: 'cat', icon: '🐱', label: 'Кот' },
+    { id: 'viking', icon: '🗡️', label: 'Викинг' }
+];
+
+let currentProfile = null;
+
+function loadProfile() {
+    const saved = localStorage.getItem('shoppingProfile');
+    if (saved) {
+        try {
+            currentProfile = JSON.parse(saved);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+    return false;
+}
+
+function saveProfile(name, avatarIcon) {
+    currentProfile = { name, avatar: avatarIcon };
+    localStorage.setItem('shoppingProfile', JSON.stringify(currentProfile));
+    updateProfileDisplay();
+    closeAllModals();
+}
+
+function updateProfileDisplay() {
+    const display = document.getElementById('profileDisplay');
+    if (currentProfile) {
+        display.textContent = currentProfile.avatar + ' ' + currentProfile.name;
+    } else {
+        display.textContent = '👤';
+    }
+}
+
+function logout() {
+    localStorage.removeItem('shoppingProfile');
+    currentProfile = null;
+    updateProfileDisplay();
+    closeAllModals();
+    // Показываем модалку выбора
+    showProfileModal();
+}
+
+// ================================================================
+// 3. МОДАЛЬНЫЕ ОКНА
+// ================================================================
+const profileModal = document.getElementById('profileModal');
+const editProfileModal = document.getElementById('editProfileModal');
+const avatarGrid = document.getElementById('avatarGrid');
+const editAvatarGrid = document.getElementById('editAvatarGrid');
+const userNameInput = document.getElementById('userNameInput');
+const editUserNameInput = document.getElementById('editUserNameInput');
+const saveProfileBtn = document.getElementById('saveProfileBtn');
+const saveEditProfileBtn = document.getElementById('saveEditProfileBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+
+let selectedAvatar = AVATARS[0].icon;
+let editSelectedAvatar = AVATARS[0].icon;
+
+function renderAvatarGrid(grid, selectedIcon) {
+    grid.innerHTML = '';
+    AVATARS.forEach(av => {
+        const div = document.createElement('div');
+        div.className = 'avatar-option' + (av.icon === selectedIcon ? ' selected' : '');
+        div.textContent = av.icon;
+        div.title = av.label;
+        div.dataset.icon = av.icon;
+        div.addEventListener('click', () => {
+            grid.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+            div.classList.add('selected');
+            if (grid === avatarGrid) {
+                selectedAvatar = av.icon;
+            } else {
+                editSelectedAvatar = av.icon;
+            }
+        });
+        grid.appendChild(div);
+    });
+}
+
+function showProfileModal() {
+    renderAvatarGrid(avatarGrid, AVATARS[0].icon);
+    selectedAvatar = AVATARS[0].icon;
+    userNameInput.value = '';
+    profileModal.classList.add('active');
+    userNameInput.focus();
+}
+
+function showEditProfileModal() {
+    if (!currentProfile) return;
+    renderAvatarGrid(editAvatarGrid, currentProfile.avatar);
+    editSelectedAvatar = currentProfile.avatar;
+    editUserNameInput.value = currentProfile.name;
+    editProfileModal.classList.add('active');
+    editUserNameInput.focus();
+}
+
+function closeAllModals() {
+    profileModal.classList.remove('active');
+    editProfileModal.classList.remove('active');
+}
+
+// Сохранение нового профиля (из модалки выбора)
+saveProfileBtn.addEventListener('click', () => {
+    const name = userNameInput.value.trim();
+    if (!name) {
+        alert('Пожалуйста, введите ваше имя');
+        return;
+    }
+    saveProfile(name, selectedAvatar);
+});
+
+userNameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') saveProfileBtn.click();
+});
+
+// Сохранение изменений (из модалки редактирования)
+saveEditProfileBtn.addEventListener('click', () => {
+    const name = editUserNameInput.value.trim();
+    if (!name) {
+        alert('Пожалуйста, введите ваше имя');
+        return;
+    }
+    saveProfile(name, editSelectedAvatar);
+});
+
+editUserNameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') saveEditProfileBtn.click();
+});
+
+// Выход
+logoutBtn.addEventListener('click', () => {
+    if (confirm('Вы уверены, что хотите выйти?')) {
+        logout();
+    }
+});
+
+// Клик по аватару в шапке открывает редактирование
+document.getElementById('profileDisplay').addEventListener('click', () => {
+    if (currentProfile) {
+        showEditProfileModal();
+    }
+});
+
+// Если профиль не сохранён, показываем модалку выбора
+if (!loadProfile()) {
+    showProfileModal();
+} else {
+    updateProfileDisplay();
+}
+
+// ================================================================
+// 4. ТЕМА (по умолчанию тёмная)
 // ================================================================
 const themeToggle = document.getElementById('themeToggle');
-const currentTheme = localStorage.getItem('theme') || 'light';
-document.documentElement.setAttribute('data-theme', currentTheme);
-themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+const storedTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', storedTheme);
+themeToggle.textContent = storedTheme === 'dark' ? '☀️' : '🌙';
 
 themeToggle.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
@@ -30,20 +196,23 @@ themeToggle.addEventListener('click', () => {
 });
 
 // ================================================================
-// 3. ВСПОМОГАТЕЛЬНЫЕ
+// 5. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 // ================================================================
-// Новая функция: проверяет, была ли покупка в предыдущие дни (до сегодняшней полуночи)
 function isFromPreviousDay(timestamp) {
     if (!timestamp) return false;
     const now = new Date();
-    // Начало сегодняшнего дня (00:00:00)
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    // Если время покупки раньше начала сегодняшнего дня -> это предыдущий день
     return timestamp.toDate() < todayStart;
 }
 
+function normalizeCategory(category) {
+    if (!category) return 'other';
+    const normalized = category.toString().trim().toLowerCase();
+    return normalized === 'food' ? 'food' : 'other';
+}
+
 // ================================================================
-// 4. DOM-ЭЛЕМЕНТЫ
+// 6. DOM-ЭЛЕМЕНТЫ
 // ================================================================
 const productList = document.getElementById('productList');
 const productInput = document.getElementById('productInput');
@@ -66,7 +235,7 @@ catBtns.forEach(btn => {
 });
 
 // ================================================================
-// 5. DRAG-AND-DROP (с поддержкой скролла)
+// 7. DRAG-AND-DROP
 // ================================================================
 let dragData = {
     isDragging: false,
@@ -94,7 +263,7 @@ function createDragClone(element) {
     clone.style.width = rect.width + 'px';
     clone.style.height = rect.height + 'px';
     clone.style.lineHeight = rect.height + 'px';
-    clone.style.padding = '14px 16px';
+    clone.style.padding = '10px 16px';
     document.body.appendChild(clone);
     return clone;
 }
@@ -129,7 +298,7 @@ function startDrag(e, productElement) {
     dragData.isDragging = true;
     dragData.element = productElement;
     dragData.productId = productElement.dataset.id;
-    dragData.currentCategory = productElement.dataset.category || 'other';
+    dragData.currentCategory = normalizeCategory(productElement.dataset.category);
     dragData.offsetX = touch.clientX - rect.left;
     dragData.offsetY = touch.clientY - rect.top;
 
@@ -171,13 +340,6 @@ function onDragEnd(e) {
         const productId = dragData.productId;
         db.collection('products').doc(productId).update({ category: targetCategory })
             .catch(err => console.error('Ошибка обновления категории:', err));
-        const nameSpan = dragData.element.querySelector('.name');
-        if (nameSpan) {
-            const newIcon = targetCategory === 'food' ? '🍔 ' : '🛒 ';
-            const oldIcon = dragData.currentCategory === 'food' ? '🍔 ' : '🛒 ';
-            nameSpan.textContent = nameSpan.textContent.replace(oldIcon, newIcon);
-        }
-        dragData.element.dataset.category = targetCategory;
     }
 
     document.body.style.userSelect = '';
@@ -280,7 +442,7 @@ function attachDragEvents(element, product) {
 }
 
 // ================================================================
-// 6. ОСНОВНАЯ ЛОГИКА
+// 8. ОСНОВНАЯ ЛОГИКА
 // ================================================================
 addButton.addEventListener('click', addProduct);
 productInput.addEventListener('keypress', (e) => {
@@ -288,6 +450,11 @@ productInput.addEventListener('keypress', (e) => {
 });
 
 async function addProduct() {
+    if (!currentProfile) {
+        alert('Сначала выберите профиль!');
+        showProfileModal();
+        return;
+    }
     const name = productInput.value.trim();
     if (!name) return;
     try {
@@ -296,7 +463,11 @@ async function addProduct() {
             category: selectedCategory,
             bought: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            boughtAt: null
+            boughtAt: null,
+            author: {
+                name: currentProfile.name,
+                avatar: currentProfile.avatar
+            }
         });
         productInput.value = '';
         productInput.focus();
@@ -326,8 +497,6 @@ async function deleteProduct(id, name) {
     }
 }
 
-// Обновлённая функция архивации: переносит только те купленные продукты,
-// у которых дата покупки раньше сегодняшней полуночи (т.е. купленные в предыдущие дни)
 async function archiveOldProducts(products) {
     for (const product of products) {
         if (product.bought && product.boughtAt && isFromPreviousDay(product.boughtAt)) {
@@ -336,7 +505,8 @@ async function archiveOldProducts(products) {
                     name: product.name,
                     category: product.category || 'other',
                     boughtAt: product.boughtAt,
-                    createdAt: product.createdAt
+                    createdAt: product.createdAt,
+                    author: product.author || null
                 });
                 await db.collection('products').doc(product.id).delete();
             } catch (error) {
@@ -347,9 +517,16 @@ async function archiveOldProducts(products) {
 }
 
 // ================================================================
-// 7. ОТРИСОВКА
+// 9. ОТРИСОВКА
 // ================================================================
 function renderProducts(products) {
+    products.forEach(p => {
+        p.category = normalizeCategory(p.category);
+        if (!p.author) {
+            p.author = { name: 'Неизвестный', avatar: '👤' };
+        }
+    });
+
     productList.innerHTML = '';
     if (products.length === 0) {
         productList.innerHTML = '<div class="empty-message">Пока ничего нет. Добавьте продукты!</div>';
@@ -361,10 +538,11 @@ function renderProducts(products) {
 
     const groupByCategory = (items) => {
         const food = items.filter(p => p.category === 'food');
-        const other = items.filter(p => p.category !== 'food' || !p.category);
+        const other = items.filter(p => p.category === 'other');
         return { food, other };
     };
 
+    // Активные
     const activeGroups = groupByCategory(active);
     if (activeGroups.food.length) {
         const label = document.createElement('div');
@@ -381,12 +559,13 @@ function renderProducts(products) {
         activeGroups.other.forEach(p => productList.appendChild(createProductElement(p)));
     }
 
-    if (bought.length > 0) {
+    if (bought.length) {
         const divider = document.createElement('hr');
         divider.className = 'divider';
         productList.appendChild(divider);
     }
 
+    // Купленные
     const boughtGroups = groupByCategory(bought);
     if (boughtGroups.food.length) {
         const label = document.createElement('div');
@@ -408,7 +587,14 @@ function createProductElement(product) {
     const div = document.createElement('div');
     div.className = 'product-item' + (product.bought ? ' bought' : '');
     div.dataset.id = product.id;
-    div.dataset.category = product.category || 'other';
+    div.dataset.category = product.category;
+
+    // Аватар автора
+    const avatarSpan = document.createElement('span');
+    avatarSpan.className = 'avatar-mini';
+    avatarSpan.textContent = product.author.avatar || '👤';
+    avatarSpan.title = product.author.name || 'Неизвестный';
+    div.appendChild(avatarSpan);
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'name';
@@ -462,14 +648,15 @@ function renderArchive(archivedItems) {
     archivedItems.forEach(item => {
         const div = document.createElement('div');
         div.className = 'archive-item';
-        const catIcon = item.category === 'food' ? '🍔 ' : '🛒 ';
-        div.textContent = catIcon + item.name;
+        const catIcon = normalizeCategory(item.category) === 'food' ? '🍔 ' : '🛒 ';
+        const authorIcon = (item.author && item.author.avatar) ? item.author.avatar : '👤';
+        div.textContent = authorIcon + ' ' + catIcon + item.name;
         archiveItems.appendChild(div);
     });
 }
 
 // ================================================================
-// 8. ПОДПИСКИ
+// 10. ПОДПИСКИ НА ИЗМЕНЕНИЯ
 // ================================================================
 db.collection('products')
     .orderBy('bought', 'asc')
@@ -505,7 +692,7 @@ db.collection('archive')
     });
 
 // ================================================================
-// 9. АРХИВ - СВОРАЧИВАНИЕ
+// 11. АРХИВ – СВОРАЧИВАНИЕ
 // ================================================================
 let archiveVisible = false;
 archiveToggle.addEventListener('click', () => {
@@ -517,6 +704,6 @@ archiveToggle.addEventListener('click', () => {
 });
 
 // ================================================================
-// 10. СТАРТ
+// 12. СТАРТ
 // ================================================================
 productInput.focus();
