@@ -197,18 +197,19 @@ if (!loadProfile()) showProfileModal();
 else updateProfileDisplay();
 
 // ================================================================
-// 4. ТЕМА
+// 4. ТЕМА (dark / arch)
 // ================================================================
 const themeToggle = document.getElementById('themeToggle');
 const storedTheme = localStorage.getItem('theme') || 'dark';
 document.documentElement.setAttribute('data-theme', storedTheme);
-themeToggle.textContent = storedTheme === 'dark' ? '☀️' : '🌙';
+// Иконки: для тёмной – 🌙, для Arch – 🐧
+themeToggle.textContent = storedTheme === 'dark' ? '🌙' : '🐧';
 themeToggle.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
-    const newTheme = current === 'dark' ? 'light' : 'dark';
+    const newTheme = current === 'dark' ? 'arch' : 'dark';
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
-    themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    themeToggle.textContent = newTheme === 'dark' ? '🌙' : '🐧';
 });
 
 // ================================================================
@@ -431,11 +432,11 @@ function cancelLongPress() {
 }
 
 // ================================================================
-// 8. SWIPE-TO-DELETE (исправлен: долгое нажатие не отменяется при касании)
+// 8. SWIPE-TO-DELETE / SWIPE-TO-COMPLETE (с поддержкой купленных)
 // ================================================================
 const SWIPE_THRESHOLD = 60;
 
-function initSwipe(element, wrapper, productId) {
+function initSwipe(element, wrapper, productId, isBought) {
     if (element.dataset.swipeInitialized) return;
     element.dataset.swipeInitialized = 'true';
 
@@ -444,16 +445,18 @@ function initSwipe(element, wrapper, productId) {
     let isSwiping = false;
     let isScrolling = false;
     let isPointerDown = false;
+    let direction = 0;
 
     const deleteBtn = wrapper.querySelector('.delete-btn-swipe');
+    const completeBtn = wrapper.querySelector('.complete-btn-swipe');
 
     function onStart(clientX, clientY) {
         if (dragData.isDragging) return;
-        // НЕ отменяем долгое нажатие здесь!
         startX = clientX;
         currentX = startX;
         isSwiping = false;
         isScrolling = false;
+        direction = 0;
         dragData.startTouchX = clientX;
         dragData.startTouchY = clientY;
         swipeActive = false;
@@ -461,36 +464,61 @@ function initSwipe(element, wrapper, productId) {
             deleteBtn.style.transition = 'opacity 0.1s ease';
             deleteBtn.style.opacity = '0';
         }
+        if (completeBtn) {
+            completeBtn.style.transition = 'opacity 0.1s ease';
+            completeBtn.style.opacity = '0';
+        }
     }
 
     function onMove(clientX, clientY) {
         if (dragData.isDragging || dragData.isLongPress) return;
         const deltaX = clientX - startX;
         const deltaY = clientY - dragData.startTouchY;
+
         if (!isSwiping && Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY)) {
             isSwiping = true;
             swipeActive = true;
-            // Отменяем долгое нажатие, потому что начался свайп
+            direction = deltaX > 0 ? 1 : -1;
             cancelLongPress();
-            if (deleteBtn) {
+            if (direction === 1 && completeBtn) {
+                completeBtn.style.transition = 'opacity 0.1s ease';
+                completeBtn.style.opacity = '1';
+            } else if (direction === -1 && !isBought && deleteBtn) {
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '1';
+            } else if (direction === -1 && isBought) {
+                isSwiping = false;
+                swipeActive = false;
+                direction = 0;
+                return;
             }
         }
+
         if (isSwiping) {
-            const offset = Math.min(0, deltaX);
-            currentX = deltaX;
+            let offset = deltaX;
+            if (direction === 1) offset = Math.min(offset, 80);
+            else if (direction === -1) offset = Math.max(offset, -80);
+            currentX = offset;
             element.style.transform = 'translateX(' + offset + 'px)';
         } else {
-            if (Math.abs(deltaY) > 10) {
-                isScrolling = true;
-            }
+            if (Math.abs(deltaY) > 10) isScrolling = true;
         }
     }
 
     function onEnd() {
         if (isSwiping) {
-            if (currentX < -SWIPE_THRESHOLD) {
+            if (direction === 1 && currentX > SWIPE_THRESHOLD) {
+                if (isBought) {
+                    toggleBought(productId, true);
+                } else {
+                    toggleBought(productId, false);
+                }
+                element.style.transition = 'transform 0.2s ease';
+                element.style.transform = 'translateX(0)';
+                setTimeout(() => {
+                    element.style.transition = '';
+                }, 250);
+            } else if (direction === -1 && currentX < -SWIPE_THRESHOLD && !isBought) {
                 const name = element.querySelector('.name')?.textContent || 'продукт';
                 if (confirm('Удалить "' + name + '"?')) {
                     deleteProduct(productId, name);
@@ -512,14 +540,20 @@ function initSwipe(element, wrapper, productId) {
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '0';
             }
+            if (completeBtn) {
+                completeBtn.style.transition = 'opacity 0.1s ease';
+                completeBtn.style.opacity = '0';
+            }
             isSwiping = false;
             currentX = 0;
+            direction = 0;
             swipeActive = false;
         }
         dragData.isScrolling = false;
         isPointerDown = false;
-        if (!isSwiping && deleteBtn) {
-            deleteBtn.style.opacity = '0';
+        if (!isSwiping) {
+            if (deleteBtn) deleteBtn.style.opacity = '0';
+            if (completeBtn) completeBtn.style.opacity = '0';
         }
     }
 
@@ -536,9 +570,7 @@ function initSwipe(element, wrapper, productId) {
         if (dragData.isDragging) return;
         const touch = e.touches[0];
         onMove(touch.clientX, touch.clientY);
-        if (isSwiping) {
-            e.preventDefault();
-        }
+        if (isSwiping) e.preventDefault();
     }, { passive: false });
 
     element.addEventListener('touchend', function(e) {
@@ -558,9 +590,7 @@ function initSwipe(element, wrapper, productId) {
         if (!isPointerDown) return;
         if (dragData.isDragging) return;
         onMove(e.clientX, e.clientY);
-        if (isSwiping) {
-            e.preventDefault();
-        }
+        if (isSwiping) e.preventDefault();
     });
 
     document.addEventListener('mouseup', function(e) {
@@ -568,7 +598,7 @@ function initSwipe(element, wrapper, productId) {
         onEnd();
     });
 
-    if (deleteBtn) {
+    if (deleteBtn && !isBought) {
         deleteBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             const name = element.querySelector('.name')?.textContent || 'продукт';
@@ -582,6 +612,22 @@ function initSwipe(element, wrapper, productId) {
                 }, 250);
                 deleteBtn.style.opacity = '0';
             }
+        });
+    }
+    if (completeBtn) {
+        completeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (isBought) {
+                toggleBought(productId, true);
+            } else {
+                toggleBought(productId, false);
+            }
+            completeBtn.style.opacity = '0';
+            element.style.transition = 'transform 0.2s ease';
+            element.style.transform = 'translateX(0)';
+            setTimeout(() => {
+                element.style.transition = '';
+            }, 250);
         });
     }
 }
@@ -769,9 +815,22 @@ function createProductWrapper(product) {
     const wrapper = document.createElement('div');
     wrapper.className = 'product-wrapper';
 
+    const completeBtn = document.createElement('button');
+    completeBtn.className = 'complete-btn-swipe';
+    if (product.bought) {
+        completeBtn.textContent = '↺';
+        completeBtn.classList.add('return');
+    } else {
+        completeBtn.textContent = '✔';
+    }
+    wrapper.appendChild(completeBtn);
+
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn-swipe';
     deleteBtn.textContent = 'Удалить';
+    if (product.bought) {
+        deleteBtn.style.display = 'none';
+    }
     wrapper.appendChild(deleteBtn);
 
     const div = document.createElement('div');
@@ -832,17 +891,12 @@ function createProductWrapper(product) {
 
     wrapper.appendChild(div);
 
-    div.addEventListener('click', (e) => {
-        if (dragData.isLongPress || dragData.isDragging) return;
-        if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
-        toggleBought(product.id, product.bought);
-    });
-
     if (!product.bought) {
         attachDragEvents(div, product);
-        initSwipe(div, wrapper, product.id);
+        initSwipe(div, wrapper, product.id, false);
     } else {
-        deleteBtn.style.display = 'none';
+        initSwipe(div, wrapper, product.id, true);
+        deleteBtn.style.display = 'flex';
     }
 
     return wrapper;
@@ -853,7 +907,7 @@ function attachDragEvents(element, product) {
     element.addEventListener('touchstart', function(e) {
         if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
         if (swipeActive) return;
-        cancelLongPress(); // сбрасываем старый таймер, если был
+        cancelLongPress();
         const touch = e.touches[0];
         dragData.startTouchX = touch.clientX;
         dragData.startTouchY = touch.clientY;
