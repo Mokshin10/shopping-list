@@ -448,6 +448,7 @@ function initSwipe(element, wrapper, productId, isBought) {
 
     const deleteBtn = wrapper.querySelector('.delete-btn-swipe');
     const completeBtn = wrapper.querySelector('.complete-btn-swipe');
+    const returnBtn = wrapper.querySelector('.return-btn-swipe');
 
     function onStart(clientX, clientY) {
         if (dragData.isDragging) return;
@@ -459,6 +460,7 @@ function initSwipe(element, wrapper, productId, isBought) {
         dragData.startTouchX = clientX;
         dragData.startTouchY = clientY;
         swipeActive = false;
+        // Скрываем все кнопки
         if (deleteBtn) {
             deleteBtn.style.transition = 'opacity 0.1s ease';
             deleteBtn.style.opacity = '0';
@@ -466,6 +468,10 @@ function initSwipe(element, wrapper, productId, isBought) {
         if (completeBtn) {
             completeBtn.style.transition = 'opacity 0.1s ease';
             completeBtn.style.opacity = '0';
+        }
+        if (returnBtn) {
+            returnBtn.style.transition = 'opacity 0.1s ease';
+            returnBtn.style.opacity = '0';
         }
     }
 
@@ -480,21 +486,21 @@ function initSwipe(element, wrapper, productId, isBought) {
             direction = deltaX > 0 ? 1 : -1;
             cancelLongPress();
 
-            // Определяем, какую кнопку показывать
+            // Показываем нужную кнопку
             if (direction === 1 && !isBought && completeBtn) {
-                // Активный товар, правый свайп – купить
+                // Активный, правый свайп – купить (жёлтая слева)
                 completeBtn.style.transition = 'opacity 0.1s ease';
                 completeBtn.style.opacity = '1';
-            } else if (direction === -1 && isBought && completeBtn) {
-                // Купленный товар, левый свайп – вернуть
-                completeBtn.style.transition = 'opacity 0.1s ease';
-                completeBtn.style.opacity = '1';
+            } else if (direction === -1 && isBought && returnBtn) {
+                // Купленный, левый свайп – вернуть (зелёная справа)
+                returnBtn.style.transition = 'opacity 0.1s ease';
+                returnBtn.style.opacity = '1';
             } else if (direction === -1 && !isBought && deleteBtn) {
-                // Активный товар, левый свайп – удалить
+                // Активный, левый свайп – удалить (красная справа)
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '1';
             } else {
-                // Неподдерживаемое направление (например, правый свайп для купленных)
+                // Неподдерживаемое направление – отменяем свайп
                 isSwiping = false;
                 swipeActive = false;
                 direction = 0;
@@ -515,9 +521,9 @@ function initSwipe(element, wrapper, productId, isBought) {
 
     function onEnd() {
         if (isSwiping) {
-            // Обработка правого свайпа (только для активных)
+            // Обработка правого свайпа для активных (купить)
             if (direction === 1 && currentX > SWIPE_THRESHOLD && !isBought) {
-                toggleBought(productId, false); // купить
+                toggleBought(productId, false);
                 element.style.transition = 'transform 0.2s ease';
                 element.style.transform = 'translateX(0)';
                 setTimeout(() => {
@@ -526,7 +532,7 @@ function initSwipe(element, wrapper, productId, isBought) {
             }
             // Обработка левого свайпа для купленных (вернуть)
             else if (direction === -1 && currentX < -SWIPE_THRESHOLD && isBought) {
-                toggleBought(productId, true); // вернуть
+                toggleBought(productId, true);
                 element.style.transition = 'transform 0.2s ease';
                 element.style.transform = 'translateX(0)';
                 setTimeout(() => {
@@ -554,7 +560,7 @@ function initSwipe(element, wrapper, productId, isBought) {
                 }, 250);
             }
 
-            // Скрываем кнопки
+            // Скрываем все кнопки
             if (deleteBtn) {
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '0';
@@ -563,6 +569,10 @@ function initSwipe(element, wrapper, productId, isBought) {
                 completeBtn.style.transition = 'opacity 0.1s ease';
                 completeBtn.style.opacity = '0';
             }
+            if (returnBtn) {
+                returnBtn.style.transition = 'opacity 0.1s ease';
+                returnBtn.style.opacity = '0';
+            }
             isSwiping = false;
             currentX = 0;
             direction = 0;
@@ -570,9 +580,11 @@ function initSwipe(element, wrapper, productId, isBought) {
         }
         dragData.isScrolling = false;
         isPointerDown = false;
+        // Дополнительно скрываем все кнопки, если вдруг остались видны
         if (!isSwiping) {
             if (deleteBtn) deleteBtn.style.opacity = '0';
             if (completeBtn) completeBtn.style.opacity = '0';
+            if (returnBtn) returnBtn.style.opacity = '0';
         }
     }
 
@@ -617,7 +629,7 @@ function initSwipe(element, wrapper, productId, isBought) {
         onEnd();
     });
 
-    // Обработчики кликов по кнопкам (на случай, если пользователь нажмёт на кнопку)
+    // Обработчики кликов по кнопкам
     if (deleteBtn && !isBought) {
         deleteBtn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -634,15 +646,23 @@ function initSwipe(element, wrapper, productId, isBought) {
             }
         });
     }
-    if (completeBtn) {
+    if (completeBtn && !isBought) {
         completeBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            if (isBought) {
-                toggleBought(productId, true);
-            } else {
-                toggleBought(productId, false);
-            }
+            toggleBought(productId, false);
             completeBtn.style.opacity = '0';
+            element.style.transition = 'transform 0.2s ease';
+            element.style.transform = 'translateX(0)';
+            setTimeout(() => {
+                element.style.transition = '';
+            }, 250);
+        });
+    }
+    if (returnBtn && isBought) {
+        returnBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleBought(productId, true);
+            returnBtn.style.opacity = '0';
             element.style.transition = 'transform 0.2s ease';
             element.style.transform = 'translateX(0)';
             setTimeout(() => {
@@ -835,16 +855,25 @@ function createProductWrapper(product) {
     const wrapper = document.createElement('div');
     wrapper.className = 'product-wrapper';
 
+    // Кнопка для правого свайпа (активные -> купить) – слева
     const completeBtn = document.createElement('button');
     completeBtn.className = 'complete-btn-swipe';
+    completeBtn.textContent = '✔';
     if (product.bought) {
-        completeBtn.textContent = '↺';
-        completeBtn.classList.add('return');
-    } else {
-        completeBtn.textContent = '✔';
+        completeBtn.style.display = 'none';
     }
     wrapper.appendChild(completeBtn);
 
+    // Кнопка для левого свайпа (купленные -> вернуть) – справа
+    const returnBtn = document.createElement('button');
+    returnBtn.className = 'return-btn-swipe';
+    returnBtn.textContent = '↺';
+    if (!product.bought) {
+        returnBtn.style.display = 'none';
+    }
+    wrapper.appendChild(returnBtn);
+
+    // Кнопка для левого свайпа (активные -> удалить) – справа
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn-swipe';
     deleteBtn.textContent = 'Удалить';
@@ -916,7 +945,10 @@ function createProductWrapper(product) {
         initSwipe(div, wrapper, product.id, false);
     } else {
         initSwipe(div, wrapper, product.id, true);
-        deleteBtn.style.display = 'flex';
+        // Для купленных скрываем completeBtn и deleteBtn, но они уже скрыты через display:none
+        // returnBtn видна (но opacity 0)
+        // Убедимся, что returnBtn видна
+        returnBtn.style.display = 'flex';
     }
 
     return wrapper;
