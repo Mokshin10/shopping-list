@@ -85,6 +85,26 @@
             </button>
             <div class="archive-items" id="archiveItems" style="display: none;"></div>
         </div>
+
+        <!-- ======= БЛОК: массовое добавление ======= -->
+        <div class="bulk-add-container" id="bulkAddContainer">
+            <button class="bulk-add-toggle" id="bulkAddToggle">
+                <span>📋</span> Добавить несколько
+            </button>
+            <div class="bulk-add-panel" id="bulkAddPanel" style="display: none;">
+                <p class="bulk-hint">
+                    Вставьте сюда JSON-массив с продуктами и нажмите «Добавить всё».
+                    Не знаете формат? Нажмите «Пример для ИИ» — шаблон скопируется в буфер,
+                    вставьте его в ИИ вместе со своим списком, и ИИ вернёт готовый массив.
+                </p>
+                <button id="aiExampleBtn" class="ai-example-btn" type="button">
+                    🤖 Пример для ИИ
+                </button>
+                <textarea id="bulkInput" spellcheck="false"
+                    placeholder='[{"name": "Молоко", "category": "food"}, ...]'></textarea>
+                <button id="bulkAddBtn" class="save-btn">Добавить всё</button>
+            </div>
+        </div>
     </div>
 
     <div class="input-area" id="inputArea">

@@ -12,7 +12,7 @@ html, body {
     min-height: 100vh;
 }
 
-/* ===== СТАНДАРТНАЯ ТЁМНАЯ ТЕМА (по умолчанию) ===== */
+/* ===== СТАНДАРТНАЯ ТЁМНАЯ ТЕМА ===== */
 :root {
     --bg-body: #0a0a0a;
     --bg-app: #1c1c1e;
@@ -46,7 +46,7 @@ html, body {
     --delete-bg: #ff3b30;
 }
 
-/* ===== ТЕМА ARCH LINUX (тёмно-синяя) ===== */
+/* ===== ТЕМА ARCH LINUX ===== */
 [data-theme="arch"] {
     --bg-body: #1a1b22;
     --bg-app: #23242c;
@@ -236,6 +236,8 @@ body {
     color: var(--text-primary);
     outline: none;
     text-align: center;
+    -webkit-user-select: text;
+    user-select: text;
 }
 #userNameInput:focus,
 #editUserNameInput:focus {
@@ -304,7 +306,6 @@ body {
     gap: 8px;
     margin-bottom: 20px;
 }
-
 .product-wrapper {
     position: relative;
     border-radius: 14px;
@@ -314,7 +315,6 @@ body {
     border: none;
     touch-action: pan-y;
 }
-
 .product-item {
     background: var(--bg-item);
     border-radius: 14px;
@@ -385,10 +385,10 @@ body {
     pointer-events: none;
 }
 
-/* ===== КНОПКА ДЛЯ ПРАВОГО СВАЙПА (активные -> купить) ===== */
+/* Кнопка "купить" — СПРАВА (появляется при свайпе влево) */
 .complete-btn-swipe {
     position: absolute;
-    left: 2px;
+    right: 2px;
     top: 2px;
     bottom: 2px;
     width: 76px;
@@ -411,7 +411,7 @@ body {
     background: #f1c40f;
 }
 
-/* ===== КНОПКА ДЛЯ ЛЕВОГО СВАЙПА (купленные -> вернуть) ===== */
+/* Кнопка "вернуть" — СПРАВА (свайп влево) */
 .return-btn-swipe {
     position: absolute;
     right: 2px;
@@ -437,10 +437,10 @@ body {
     background: #27ae60;
 }
 
-/* ===== КНОПКА УДАЛЕНИЯ (активные -> левый свайп) ===== */
+/* Кнопка удаления — СЛЕВА (появляется при свайпе вправо) */
 .delete-btn-swipe {
     position: absolute;
-    right: 2px;
+    left: 2px;
     top: 2px;
     bottom: 2px;
     width: 76px;
@@ -558,6 +558,96 @@ body {
     background: var(--bg-item);
 }
 
+/* ===== BULK ADD ===== */
+.bulk-add-container {
+    margin-top: 16px;
+    border-top: 1px solid var(--divider);
+    padding-top: 12px;
+}
+.bulk-add-toggle {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+}
+.bulk-add-panel {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.bulk-hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+.bulk-hint code {
+    background: var(--bg-item);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--accent);
+    font-size: 12px;
+}
+
+.ai-example-btn {
+    background: var(--bg-item);
+    color: var(--accent);
+    border: 1px dashed var(--accent);
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s, opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+}
+.ai-example-btn:hover {
+    background: var(--border-color);
+}
+.ai-example-btn:active {
+    transform: scale(0.98);
+}
+.ai-example-btn.copied {
+    border-color: #34c759;
+    color: #34c759;
+    border-style: solid;
+}
+
+#bulkInput {
+    width: 100%;
+    min-height: 150px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+}
+#bulkInput:focus {
+    border-color: var(--accent);
+}
+.bulk-add-panel .save-btn {
+    flex: none;
+    align-self: stretch;
+    padding: 12px;
+}
+
 /* ===== INPUT AREA ===== */
 .input-area {
     position: fixed;
@@ -628,6 +718,8 @@ body {
     background: var(--bg-input);
     color: var(--text-primary);
     transition: border-color 0.2s, background 0.3s, color 0.3s;
+    -webkit-user-select: text;
+    user-select: text;
 }
 .input-row input:focus {
     border-color: var(--accent);
@@ -705,5 +797,9 @@ body {
     .avatar-grid {
         grid-template-columns: repeat(4, 1fr);
         gap: 8px;
+    }
+    #bulkInput {
+        font-size: 12px;
+        min-height: 130px;
     }
 }

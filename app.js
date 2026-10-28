@@ -367,7 +367,6 @@ function updateDragClone(clientX, clientY) {
 }
 
 function onDragEnd(e) {
-    const touch = e.changedTouches ? e.changedTouches[0] : e;
     let targetCategory = null;
     const catBtns = document.querySelectorAll('.cat-btn');
     catBtns.forEach(btn => {
@@ -431,7 +430,9 @@ function cancelLongPress() {
 }
 
 // ================================================================
-// 8. SWIPE-TO-DELETE / SWIPE-TO-COMPLETE (с поддержкой купленных)
+// 8. SWIPE-TO-DELETE / SWIPE-TO-COMPLETE
+//    Вправо -> удалить (красная кнопка слева)
+//    Влево  -> купить / вернуть (жёлтая/зелёная кнопка справа)
 // ================================================================
 const SWIPE_THRESHOLD = 60;
 
@@ -450,6 +451,15 @@ function initSwipe(element, wrapper, productId, isBought) {
     const completeBtn = wrapper.querySelector('.complete-btn-swipe');
     const returnBtn = wrapper.querySelector('.return-btn-swipe');
 
+    function hideAllButtons() {
+        [deleteBtn, completeBtn, returnBtn].forEach(b => {
+            if (b) {
+                b.style.transition = 'opacity 0.1s ease';
+                b.style.opacity = '0';
+            }
+        });
+    }
+
     function onStart(clientX, clientY) {
         if (dragData.isDragging) return;
         startX = clientX;
@@ -460,19 +470,7 @@ function initSwipe(element, wrapper, productId, isBought) {
         dragData.startTouchX = clientX;
         dragData.startTouchY = clientY;
         swipeActive = false;
-        // Скрываем все кнопки
-        if (deleteBtn) {
-            deleteBtn.style.transition = 'opacity 0.1s ease';
-            deleteBtn.style.opacity = '0';
-        }
-        if (completeBtn) {
-            completeBtn.style.transition = 'opacity 0.1s ease';
-            completeBtn.style.opacity = '0';
-        }
-        if (returnBtn) {
-            returnBtn.style.transition = 'opacity 0.1s ease';
-            returnBtn.style.opacity = '0';
-        }
+        hideAllButtons();
     }
 
     function onMove(clientX, clientY) {
@@ -486,21 +484,21 @@ function initSwipe(element, wrapper, productId, isBought) {
             direction = deltaX > 0 ? 1 : -1;
             cancelLongPress();
 
-            // Показываем нужную кнопку
-            if (direction === 1 && !isBought && completeBtn) {
-                // Активный, правый свайп – купить (жёлтая слева)
-                completeBtn.style.transition = 'opacity 0.1s ease';
-                completeBtn.style.opacity = '1';
-            } else if (direction === -1 && isBought && returnBtn) {
-                // Купленный, левый свайп – вернуть (зелёная справа)
-                returnBtn.style.transition = 'opacity 0.1s ease';
-                returnBtn.style.opacity = '1';
-            } else if (direction === -1 && !isBought && deleteBtn) {
-                // Активный, левый свайп – удалить (красная справа)
+            // Вправо -> удалить (кнопка слева)
+            if (direction === 1 && deleteBtn) {
                 deleteBtn.style.transition = 'opacity 0.1s ease';
                 deleteBtn.style.opacity = '1';
+            }
+            // Влево + активный -> купить (кнопка справа)
+            else if (direction === -1 && !isBought && completeBtn) {
+                completeBtn.style.transition = 'opacity 0.1s ease';
+                completeBtn.style.opacity = '1';
+            }
+            // Влево + купленный -> вернуть (кнопка справа)
+            else if (direction === -1 && isBought && returnBtn) {
+                returnBtn.style.transition = 'opacity 0.1s ease';
+                returnBtn.style.opacity = '1';
             } else {
-                // Неподдерживаемое направление – отменяем свайп
                 isSwiping = false;
                 swipeActive = false;
                 direction = 0;
@@ -521,58 +519,37 @@ function initSwipe(element, wrapper, productId, isBought) {
 
     function onEnd() {
         if (isSwiping) {
-            // Обработка правого свайпа для активных (купить)
-            if (direction === 1 && currentX > SWIPE_THRESHOLD && !isBought) {
-                toggleBought(productId, false);
-                element.style.transition = 'transform 0.2s ease';
-                element.style.transform = 'translateX(0)';
-                setTimeout(() => {
-                    element.style.transition = '';
-                }, 250);
-            }
-            // Обработка левого свайпа для купленных (вернуть)
-            else if (direction === -1 && currentX < -SWIPE_THRESHOLD && isBought) {
-                toggleBought(productId, true);
-                element.style.transition = 'transform 0.2s ease';
-                element.style.transform = 'translateX(0)';
-                setTimeout(() => {
-                    element.style.transition = '';
-                }, 250);
-            }
-            // Обработка левого свайпа для активных (удалить)
-            else if (direction === -1 && currentX < -SWIPE_THRESHOLD && !isBought) {
+            // Вправо на порог -> удалить
+            if (direction === 1 && currentX > SWIPE_THRESHOLD) {
                 const name = element.querySelector('.name')?.textContent || 'продукт';
                 if (confirm('Удалить "' + name + '"?')) {
                     deleteProduct(productId, name);
                 } else {
                     element.style.transition = 'transform 0.2s ease';
                     element.style.transform = 'translateX(0)';
-                    setTimeout(() => {
-                        element.style.transition = '';
-                    }, 250);
+                    setTimeout(() => { element.style.transition = ''; }, 250);
                 }
-            } else {
-                // Не довели до порога – возвращаем
+            }
+            // Влево + активный -> купить
+            else if (direction === -1 && currentX < -SWIPE_THRESHOLD && !isBought) {
+                toggleBought(productId, false);
                 element.style.transition = 'transform 0.2s ease';
                 element.style.transform = 'translateX(0)';
-                setTimeout(() => {
-                    element.style.transition = '';
-                }, 250);
+                setTimeout(() => { element.style.transition = ''; }, 250);
+            }
+            // Влево + купленный -> вернуть
+            else if (direction === -1 && currentX < -SWIPE_THRESHOLD && isBought) {
+                toggleBought(productId, true);
+                element.style.transition = 'transform 0.2s ease';
+                element.style.transform = 'translateX(0)';
+                setTimeout(() => { element.style.transition = ''; }, 250);
+            } else {
+                element.style.transition = 'transform 0.2s ease';
+                element.style.transform = 'translateX(0)';
+                setTimeout(() => { element.style.transition = ''; }, 250);
             }
 
-            // Скрываем все кнопки
-            if (deleteBtn) {
-                deleteBtn.style.transition = 'opacity 0.1s ease';
-                deleteBtn.style.opacity = '0';
-            }
-            if (completeBtn) {
-                completeBtn.style.transition = 'opacity 0.1s ease';
-                completeBtn.style.opacity = '0';
-            }
-            if (returnBtn) {
-                returnBtn.style.transition = 'opacity 0.1s ease';
-                returnBtn.style.opacity = '0';
-            }
+            hideAllButtons();
             isSwiping = false;
             currentX = 0;
             direction = 0;
@@ -580,15 +557,10 @@ function initSwipe(element, wrapper, productId, isBought) {
         }
         dragData.isScrolling = false;
         isPointerDown = false;
-        // Дополнительно скрываем все кнопки, если вдруг остались видны
-        if (!isSwiping) {
-            if (deleteBtn) deleteBtn.style.opacity = '0';
-            if (completeBtn) completeBtn.style.opacity = '0';
-            if (returnBtn) returnBtn.style.opacity = '0';
-        }
+        hideAllButtons();
     }
 
-    // Touch события
+    // Touch
     element.addEventListener('touchstart', function(e) {
         if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
         if (dragData.isDragging) return;
@@ -604,11 +576,11 @@ function initSwipe(element, wrapper, productId, isBought) {
         if (isSwiping) e.preventDefault();
     }, { passive: false });
 
-    element.addEventListener('touchend', function(e) {
+    element.addEventListener('touchend', function() {
         onEnd();
     }, { passive: true });
 
-    // Mouse события
+    // Mouse
     element.addEventListener('mousedown', function(e) {
         if (e.target.closest('.urgent-icon') || e.target.closest('.reminder-icon')) return;
         if (dragData.isDragging) return;
@@ -624,13 +596,13 @@ function initSwipe(element, wrapper, productId, isBought) {
         if (isSwiping) e.preventDefault();
     });
 
-    document.addEventListener('mouseup', function(e) {
+    document.addEventListener('mouseup', function() {
         if (!isPointerDown) return;
         onEnd();
     });
 
-    // Обработчики кликов по кнопкам
-    if (deleteBtn && !isBought) {
+    // Клики по кнопкам
+    if (deleteBtn) {
         deleteBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             const name = element.querySelector('.name')?.textContent || 'продукт';
@@ -639,9 +611,7 @@ function initSwipe(element, wrapper, productId, isBought) {
             } else {
                 element.style.transition = 'transform 0.2s ease';
                 element.style.transform = 'translateX(0)';
-                setTimeout(() => {
-                    element.style.transition = '';
-                }, 250);
+                setTimeout(() => { element.style.transition = ''; }, 250);
                 deleteBtn.style.opacity = '0';
             }
         });
@@ -653,9 +623,7 @@ function initSwipe(element, wrapper, productId, isBought) {
             completeBtn.style.opacity = '0';
             element.style.transition = 'transform 0.2s ease';
             element.style.transform = 'translateX(0)';
-            setTimeout(() => {
-                element.style.transition = '';
-            }, 250);
+            setTimeout(() => { element.style.transition = ''; }, 250);
         });
     }
     if (returnBtn && isBought) {
@@ -665,9 +633,7 @@ function initSwipe(element, wrapper, productId, isBought) {
             returnBtn.style.opacity = '0';
             element.style.transition = 'transform 0.2s ease';
             element.style.transform = 'translateX(0)';
-            setTimeout(() => {
-                element.style.transition = '';
-            }, 250);
+            setTimeout(() => { element.style.transition = ''; }, 250);
         });
     }
 }
@@ -855,32 +821,25 @@ function createProductWrapper(product) {
     const wrapper = document.createElement('div');
     wrapper.className = 'product-wrapper';
 
-    // Кнопка для правого свайпа (активные -> купить) – слева
-    const completeBtn = document.createElement('button');
-    completeBtn.className = 'complete-btn-swipe';
-    completeBtn.textContent = '✔';
-    if (product.bought) {
-        completeBtn.style.display = 'none';
-    }
-    wrapper.appendChild(completeBtn);
-
-    // Кнопка для левого свайпа (купленные -> вернуть) – справа
-    const returnBtn = document.createElement('button');
-    returnBtn.className = 'return-btn-swipe';
-    returnBtn.textContent = '↺';
-    if (!product.bought) {
-        returnBtn.style.display = 'none';
-    }
-    wrapper.appendChild(returnBtn);
-
-    // Кнопка для левого свайпа (активные -> удалить) – справа
+    // Кнопка удаления — LEFT (появляется при свайпе вправо)
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn-swipe';
     deleteBtn.textContent = 'Удалить';
-    if (product.bought) {
-        deleteBtn.style.display = 'none';
-    }
     wrapper.appendChild(deleteBtn);
+
+    // Кнопка "купить" — RIGHT (появляется при свайпе влево, только для активных)
+    const completeBtn = document.createElement('button');
+    completeBtn.className = 'complete-btn-swipe';
+    completeBtn.textContent = '✔';
+    if (product.bought) completeBtn.style.display = 'none';
+    wrapper.appendChild(completeBtn);
+
+    // Кнопка "вернуть" — RIGHT (появляется при свайпе влево, только для купленных)
+    const returnBtn = document.createElement('button');
+    returnBtn.className = 'return-btn-swipe';
+    returnBtn.textContent = '↺';
+    if (!product.bought) returnBtn.style.display = 'none';
+    wrapper.appendChild(returnBtn);
 
     const div = document.createElement('div');
     div.className = 'product-item' + (product.bought ? ' bought' : '');
@@ -945,10 +904,6 @@ function createProductWrapper(product) {
         initSwipe(div, wrapper, product.id, false);
     } else {
         initSwipe(div, wrapper, product.id, true);
-        // Для купленных скрываем completeBtn и deleteBtn, но они уже скрыты через display:none
-        // returnBtn видна (но opacity 0)
-        // Убедимся, что returnBtn видна
-        returnBtn.style.display = 'flex';
     }
 
     return wrapper;
@@ -1128,6 +1083,139 @@ archiveToggle.addEventListener('click', () => {
 });
 
 // ================================================================
-// 13. СТАРТ
+// 13. МАССОВОЕ ДОБАВЛЕНИЕ
+// ================================================================
+const bulkAddToggle = document.getElementById('bulkAddToggle');
+const bulkAddPanel = document.getElementById('bulkAddPanel');
+const bulkInput = document.getElementById('bulkInput');
+const bulkAddBtn = document.getElementById('bulkAddBtn');
+const aiExampleBtn = document.getElementById('aiExampleBtn');
+
+const AI_EXAMPLE = `Сгенерируй JSON-массив продуктов в таком формате (не меняй структуру, только содержимое):
+
+[
+  {"name": "Молоко", "category": "food"},
+  {"name": "Хлеб", "category": "food"},
+  {"name": "Мыло", "category": "other"},
+  {"name": "Средство для посуды", "category": "other", "urgent": true}
+]
+
+Правила:
+- name — название продукта (обязательно, строка);
+- category — строго "food" (еда) или "other" (остальное);
+- urgent — необязательно, true/false (срочный продукт).
+
+Мой список продуктов (распредели по категориям):
+1. 
+2. 
+3. `;
+
+let bulkVisible = false;
+bulkAddToggle.addEventListener('click', () => {
+    bulkVisible = !bulkVisible;
+    bulkAddPanel.style.display = bulkVisible ? 'flex' : 'none';
+    if (bulkVisible) {
+        setTimeout(() => {
+            bulkAddPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            bulkInput.focus();
+        }, 80);
+    }
+});
+
+// Копируем шаблон в буфер обмена
+aiExampleBtn.addEventListener('click', async () => {
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(AI_EXAMPLE);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = AI_EXAMPLE;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+        const original = aiExampleBtn.textContent;
+        aiExampleBtn.textContent = '✅ Скопировано!';
+        aiExampleBtn.classList.add('copied');
+        setTimeout(() => {
+            aiExampleBtn.textContent = original;
+            aiExampleBtn.classList.remove('copied');
+        }, 1500);
+    } catch (e) {
+        console.error('Не удалось скопировать:', e);
+        alert('Не удалось скопировать автоматически. Вот шаблон:\n\n' + AI_EXAMPLE);
+    }
+});
+
+bulkAddBtn.addEventListener('click', async () => {
+    if (!currentProfile) {
+        alert('Сначала выберите профиль!');
+        showProfileModal();
+        return;
+    }
+
+    let text = bulkInput.value.trim();
+    if (!text) return;
+
+    // На случай, если массив обёрнут в ```json ... ```
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+
+    let items;
+    try {
+        items = JSON.parse(text);
+    } catch (e) {
+        alert('Не удалось распознать массив. Проверьте, что это корректный JSON.');
+        return;
+    }
+
+    if (!Array.isArray(items)) {
+        alert('Ожидается массив объектов: [{"name": "...", "category": "food"}]');
+        return;
+    }
+
+    const valid = items.filter(it => it && typeof it === 'object' && typeof it.name === 'string' && it.name.trim());
+    if (!valid.length) {
+        alert('В массиве нет ни одного продукта с полем "name".');
+        return;
+    }
+
+    const baseOrder = Date.now();
+    const batch = db.batch();
+
+    valid.forEach((it, i) => {
+        const ref = db.collection('products').doc();
+        batch.set(ref, {
+            name: it.name.trim(),
+            category: normalizeCategory(it.category),
+            bought: false,
+            order: baseOrder + i,
+            urgent: !!it.urgent,
+            repeat: { enabled: false, interval: 0, nextDate: null },
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            boughtAt: null,
+            author: {
+                name: currentProfile.name,
+                avatar: currentProfile.avatar
+            }
+        });
+    });
+
+    try {
+        await batch.commit();
+        bulkInput.value = '';
+        bulkAddPanel.style.display = 'none';
+        bulkVisible = false;
+        alert(`Добавлено ${valid.length} продуктов`);
+    } catch (e) {
+        console.error('Ошибка массового добавления:', e);
+        alert('Не удалось добавить. Проверьте интернет.');
+    }
+});
+
+// ================================================================
+// 14. СТАРТ
 // ================================================================
 productInput.focus();
