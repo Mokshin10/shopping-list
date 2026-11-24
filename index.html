@@ -1,129 +1,163 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Список покупок</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Дела и Покупки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="profileModal" class="modal">
-        <div class="modal-content">
-            <h2>👋 Выберите профиль</h2>
-            <p>Введите ваше имя и выберите аватар</p>
-            <div class="modal-body">
-                <div class="avatar-grid" id="avatarGrid"></div>
-                <div class="name-input-wrap">
-                    <input type="text" id="userNameInput" placeholder="Ваше имя..." maxlength="20" />
-                </div>
-                <button id="saveProfileBtn" class="save-btn">Сохранить</button>
-            </div>
-        </div>
+<div class="app">
+
+  <!-- ================= HEADER ================= -->
+  <header class="header">
+    <span class="header-icon">📝</span>
+    <h1>Дела и Покупки</h1>
+    <div class="header-right">
+      <div id="profileDisplay" class="profile-display">👤</div>
+      <button id="themeToggle" class="theme-toggle" title="Сменить тему">🌙</button>
+    </div>
+  </header>
+
+  <!-- ================= ЭКРАН ДЕЛ ================= -->
+  <section id="tasksScreen" class="screen active">
+    <div class="task-list" id="taskList"></div>
+
+    <div class="add-task-area">
+      <div class="input-row">
+        <button id="taskEmojiBtn" class="emoji-btn" title="Выбрать эмодзи">📋</button>
+        <input type="text" id="taskInput" placeholder="Новое дело..." autocomplete="off" maxlength="60">
+        <button id="addTaskButton" class="add-btn">+</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ЭКРАН ПОКУПОК (внутри дела) ================= -->
+  <section id="productsScreen" class="screen">
+    <div class="screen-header">
+      <button id="backButton" class="back-btn">← Назад</button>
+      <h2 id="currentTaskName" class="task-title"></h2>
     </div>
 
-    <div id="editProfileModal" class="modal">
-        <div class="modal-content">
-            <h2>✏️ Редактировать профиль</h2>
-            <p>Измените имя или аватар</p>
-            <div class="modal-body">
-                <div class="avatar-grid" id="editAvatarGrid"></div>
-                <div class="name-input-wrap">
-                    <input type="text" id="editUserNameInput" placeholder="Ваше имя..." maxlength="20" />
-                </div>
-                <div class="modal-actions">
-                    <button id="saveEditProfileBtn" class="save-btn">Сохранить</button>
-                    <button id="logoutBtn" class="logout-btn">🚪 Выйти</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="reminderModal" class="modal">
-        <div class="modal-content">
-            <h2>⏰ Напоминание</h2>
-            <p>Настройте автоматическое добавление продукта</p>
-            <div class="modal-body">
-                <div class="reminder-product-name" id="reminderProductName"></div>
-                <div class="reminder-interval-wrap">
-                    <label>Повторять каждые:</label>
-                    <select id="reminderInterval">
-                        <option value="1">1 день</option>
-                        <option value="2">2 дня</option>
-                        <option value="3">3 дня</option>
-                        <option value="7" selected>7 дней (неделя)</option>
-                        <option value="14">14 дней (2 недели)</option>
-                        <option value="30">30 дней (месяц)</option>
-                    </select>
-                </div>
-                <div class="modal-actions">
-                    <button id="saveReminderBtn" class="save-btn">Сохранить</button>
-                    <button id="removeReminderBtn" class="logout-btn">Отключить</button>
-                    <button id="closeReminderBtn" class="cancel-btn">Отмена</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="app" id="app">
-        <div class="header">
-            <span class="header-icon">🛒</span>
-            <h1>Список покупок</h1>
-            <div class="header-right">
-                <span id="profileDisplay" class="profile-display" title="Нажмите для редактирования"></span>
-                <button class="theme-toggle" id="themeToggle" title="Переключить тему">🌙</button>
-            </div>
-        </div>
-
-        <div class="product-list" id="productList"></div>
-
-        <div class="archive-container" id="archiveContainer">
-            <button class="archive-toggle" id="archiveToggle">
-                <span>📦</span> Куплено ранее (<span id="archiveCount">0</span>)
-            </button>
-            <div class="archive-items" id="archiveItems" style="display: none;"></div>
-        </div>
-
-        <!-- ======= БЛОК: массовое добавление ======= -->
-        <div class="bulk-add-container" id="bulkAddContainer">
-            <button class="bulk-add-toggle" id="bulkAddToggle">
-                <span>📋</span> Добавить несколько
-            </button>
-            <div class="bulk-add-panel" id="bulkAddPanel" style="display: none;">
-                <p class="bulk-hint">
-                    Вставьте сюда JSON-массив с продуктами и нажмите «Добавить всё».
-                    Не знаете формат? Нажмите «Пример для ИИ» — шаблон скопируется в буфер,
-                    вставьте его в ИИ вместе со своим списком, и ИИ вернёт готовый массив.
-                </p>
-                <button id="aiExampleBtn" class="ai-example-btn" type="button">
-                    🤖 Пример для ИИ
-                </button>
-                <textarea id="bulkInput" spellcheck="false"
-                    placeholder='[{"name": "Молоко", "category": "food"}, ...]'></textarea>
-                <button id="bulkAddBtn" class="save-btn">Добавить всё</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="input-area" id="inputArea">
-        <div class="category-selector">
-            <button class="cat-btn active" data-category="food" title="Еда">
-                <span>🍔</span> Еда
-            </button>
-            <button class="cat-btn" data-category="other" title="Остальное">
-                <span>🛒</span> Остальное
-            </button>
-        </div>
-        <div class="input-row">
-            <input type="text" id="productInput" placeholder="Напишите продукт..." autocomplete="off" />
-            <button id="addButton">Добавить</button>
-        </div>
-    </div>
-
+    <div class="product-list" id="productList"></div>
     <div id="dragIndicator" class="drag-indicator"></div>
 
-    <script src="app.js"></script>
+    <div class="archive-container">
+      <button id="archiveToggle" class="archive-toggle">
+        <span>📦</span> Куплено ранее (<span id="archiveCount">0</span>)
+      </button>
+      <div id="archiveItems" class="archive-items" style="display:none;"></div>
+    </div>
+
+    <div class="bulk-add-container">
+      <button id="bulkAddToggle" class="bulk-add-toggle">
+        <span>📋</span> Добавить несколько
+      </button>
+      <div id="bulkAddPanel" class="bulk-add-panel" style="display:none;">
+        <div class="bulk-hint">
+          Вставьте JSON-массив и нажмите «Добавить всё». Не знаете формат? Нажмите «Пример для ИИ» — шаблон скопируется в буфер, вставьте его в ИИ со своим списком, и ИИ вернёт готовый массив.
+        </div>
+        <button id="aiExampleBtn" class="ai-example-btn">🤖 Пример для ИИ</button>
+        <textarea id="bulkInput" placeholder='[{"name":"Молоко","category":"food"}]'></textarea>
+        <button id="bulkAddBtn" class="save-btn">Добавить всё</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ================= ФИКСИРОВАННАЯ ПАНЕЛЬ ВВОДА ПОКУПОК ================= -->
+<div id="inputArea" class="input-area" style="display:none;">
+  <div class="category-selector">
+    <button class="cat-btn active" data-category="food">🍔 Еда</button>
+    <button class="cat-btn" data-category="other">🛒 Остальное</button>
+  </div>
+  <div class="input-row">
+    <input type="text" id="productInput" placeholder="Продукт..." autocomplete="off">
+    <button id="addButton">Добавить</button>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА ПРОФИЛЯ ================= -->
+<div id="profileModal" class="modal">
+  <div class="modal-content">
+    <h2>👋 Выберите профиль</h2>
+    <p>Введите ваше имя и выберите аватар</p>
+    <div class="modal-body">
+      <div id="avatarGrid" class="avatar-grid"></div>
+      <div class="name-input-wrap">
+        <input type="text" id="userNameInput" placeholder="Ваше имя" maxlength="20">
+      </div>
+      <div class="modal-actions">
+        <button id="saveProfileBtn" class="save-btn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА РЕДАКТИРОВАНИЯ ПРОФИЛЯ ================= -->
+<div id="editProfileModal" class="modal">
+  <div class="modal-content">
+    <h2>✏️ Редактировать профиль</h2>
+    <p>Измените имя или аватар</p>
+    <div class="modal-body">
+      <div id="editAvatarGrid" class="avatar-grid"></div>
+      <div class="name-input-wrap">
+        <input type="text" id="editUserNameInput" placeholder="Ваше имя" maxlength="20">
+      </div>
+      <div class="modal-actions">
+        <button id="saveEditProfileBtn" class="save-btn">Сохранить</button>
+        <button id="logoutBtn" class="logout-btn">🚪 Выйти</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА НАПОМИНАНИЯ ================= -->
+<div id="reminderModal" class="modal">
+  <div class="modal-content">
+    <h2>⏰ Напоминание</h2>
+    <p>Настройте автоматическое добавление продукта</p>
+    <div class="modal-body">
+      <div class="reminder-product-name" id="reminderProductName"></div>
+      <div class="reminder-interval-wrap">
+        <label>Повторять каждые:</label>
+        <select id="reminderInterval">
+          <option value="1">1 день</option>
+          <option value="2">2 дня</option>
+          <option value="3">3 дня</option>
+          <option value="7" selected>7 дней (неделя)</option>
+          <option value="14">14 дней (2 недели)</option>
+          <option value="30">30 дней (месяц)</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button id="saveReminderBtn" class="save-btn">Сохранить</button>
+        <button id="removeReminderBtn" class="cancel-btn">Отключить</button>
+        <button id="closeReminderBtn" class="cancel-btn">Отмена</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= МОДАЛКА ВЫБОРА ЭМОДЗИ ДЛЯ ДЕЛА ================= -->
+<div id="taskEmojiModal" class="modal">
+  <div class="modal-content">
+    <h2>🎨 Эмодзи для дела</h2>
+    <p>Выберите иконку, которая будет отображаться рядом с делом</p>
+    <div class="modal-body">
+      <div id="taskEmojiGrid" class="avatar-grid"></div>
+      <div class="modal-actions">
+        <button id="closeTaskEmojiBtn" class="cancel-btn">Готово</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= СКРИПТЫ ================= -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
